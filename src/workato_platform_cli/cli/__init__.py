@@ -21,6 +21,7 @@ from workato_platform_cli.cli.commands.connectors import command as connectors
 from workato_platform_cli.cli.commands.projects import command as projects
 from workato_platform_cli.cli.commands.push import command as push
 from workato_platform_cli.cli.commands.recipes import command as recipes
+from workato_platform_cli.cli.commands.sdk import command as sdk
 from workato_platform_cli.cli.containers import Container
 from workato_platform_cli.cli.utils.version_checker import check_updates_async
 
@@ -98,6 +99,7 @@ def cli(
             assets,
             workspace,
             recipes,
+            sdk,
         ]
     )
 
@@ -120,6 +122,7 @@ cli.add_command_with_alias(data_tables.data_tables, alias="data-table")
 cli.add_command_with_alias(connections.connections, alias="connection")
 cli.add_command_with_alias(connectors.connectors, alias="connector")
 cli.add_command_with_alias(recipes.recipes, alias="recipe")
+cli.add_command(sdk.sdk)
 
 # Information commands
 cli.add_command_with_alias(assets.assets, alias="asset")

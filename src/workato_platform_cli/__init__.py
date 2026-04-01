@@ -20,6 +20,7 @@ from workato_platform_cli.client.workato_api.api.packages_api import PackagesApi
 from workato_platform_cli.client.workato_api.api.projects_api import ProjectsApi
 from workato_platform_cli.client.workato_api.api.properties_api import PropertiesApi
 from workato_platform_cli.client.workato_api.api.recipes_api import RecipesApi
+from workato_platform_cli.client.workato_api.api.sdk_api import SdkApi
 from workato_platform_cli.client.workato_api.api.users_api import UsersApi
 from workato_platform_cli.client.workato_api.api_client import ApiClient
 from workato_platform_cli.client.workato_api.configuration import Configuration
@@ -111,6 +112,7 @@ class Workato:
         self.data_tables_api = DataTablesApi(self._api_client)
         self.connectors_api = ConnectorsApi(self._api_client)
         self.api_platform_api = APIPlatformApi(self._api_client)
+        self.sdk_api = SdkApi(self._api_client)
 
     @property
     def configuration(self) -> Configuration:
