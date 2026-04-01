@@ -47,16 +47,6 @@ class SdkRunner:
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False
 
-    def install_gem(self) -> subprocess.CompletedProcess[str]:
-        """Install workato-connector-sdk gem."""
-        gem = self._get_gem_executable()
-        return subprocess.run(  # noqa: S603
-            [gem, "install", self.GEM_NAME],
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-
     def run_interactive(self, *args: str, timeout: int = 600) -> int:
         """Run SDK command with stdin/stdout passthrough.
 
@@ -65,18 +55,3 @@ class SdkRunner:
         cmd = self._build_command(*args)
         result = subprocess.run(cmd, timeout=timeout)  # noqa: S603
         return result.returncode
-
-    def run_captured(
-        self, *args: str, timeout: int = 300
-    ) -> subprocess.CompletedProcess[str]:
-        """Run SDK command capturing output.
-
-        Returns CompletedProcess.
-        """
-        cmd = self._build_command(*args)
-        return subprocess.run(  # noqa: S603
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )

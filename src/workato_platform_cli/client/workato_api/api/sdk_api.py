@@ -172,13 +172,7 @@ class SdkApi:
 
         _auth_settings: List[str] = ['BearerAuth']
 
-        import json as _json
-        if isinstance(body, dict):
-            _body_params = _json.dumps(body).encode('utf-8')
-        elif isinstance(body, str):
-            _body_params = body.encode('utf-8')
-        else:
-            _body_params = body
+        _body_params = body
 
         return self.api_client.param_serialize(
             method='POST',

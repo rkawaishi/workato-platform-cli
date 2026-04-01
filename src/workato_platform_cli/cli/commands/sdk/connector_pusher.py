@@ -33,7 +33,7 @@ async def push_connector(
         note=notes,
     )
 
-    if connector_id:
+    if connector_id is not None:
         click.echo(f"  🔄 Updating connector {connector_id}...")
         response = await workato_api_client.connectors_api.update_custom_connector(
             id=connector_id,
@@ -47,7 +47,7 @@ async def push_connector(
         )
         click.echo(f"  ✅ Connector created: {response.title} (ID: {response.id})")
 
-    if release and response.id:
+    if release and response.id is not None:
         click.echo("  📦 Releasing connector...")
         release_response = (
             await workato_api_client.connectors_api.release_custom_connector(
