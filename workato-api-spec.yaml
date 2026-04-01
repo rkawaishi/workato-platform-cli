@@ -769,6 +769,96 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/recipes/{recipe_id}/jobs:
+    get:
+      operationId: list_jobs
+      summary: List jobs for a recipe
+      description: |
+        Returns a list of jobs for a given recipe.
+        Jobs are returned in descending order by default.
+      tags:
+        - Jobs
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          description: Recipe ID
+          schema:
+            type: integer
+        - name: offset_job_id
+          in: query
+          description: Offset job ID for pagination
+          schema:
+            type: string
+        - name: prev
+          in: query
+          description: When true, returns newer jobs relative to offset
+          schema:
+            type: boolean
+            default: false
+        - name: status
+          in: query
+          description: Filter by job status
+          schema:
+            type: string
+            enum: [succeeded, failed, pending]
+        - name: rerun_only
+          in: query
+          description: When true, returns only rerun jobs
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of jobs retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: Recipe not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/recipes/{recipe_id}/jobs/{job_id}:
+    get:
+      operationId: get_job
+      summary: Get job details
+      description: Returns detailed information about a specific job including execution steps.
+      tags:
+        - Jobs
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          description: Recipe ID
+          schema:
+            type: integer
+        - name: job_id
+          in: path
+          required: true
+          description: Job ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobDetail"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: Job or recipe not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /api/integrations/all:
     get:
       operationId: list_platform_connectors
@@ -3277,6 +3367,150 @@ components:
               format: uri
               description: The OAuth authorization URL
               example: "https://login.microsoftonline.com/oauth2/v2.0/authorize?client_id=..."
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Job ID
+          example: "12345"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the job completed
+        started_at:
+          type: string
+          format: date-time
+          description: Timestamp when the job started
+        title:
+          type: string
+          description: Job title
+          example: "New row in Salesforce"
+        is_poll_error:
+          type: boolean
+          description: Whether the job is a polling error
+        error:
+          type: string
+          nullable: true
+          description: Error message if the job failed
+        is_error:
+          type: boolean
+          description: Whether the job encountered an error
+        status:
+          type: string
+          description: Job status
+          enum: [succeeded, failed, pending]
+        recipe_id:
+          type: integer
+          description: Recipe ID this job belongs to
+        calling_recipe_id:
+          type: integer
+          nullable: true
+          description: ID of the calling recipe (if triggered by another recipe)
+        calling_job_id:
+          type: string
+          nullable: true
+          description: ID of the calling job
+        root_recipe_id:
+          type: integer
+          nullable: true
+          description: ID of the root recipe in a chain
+        root_job_id:
+          type: string
+          nullable: true
+          description: ID of the root job in a chain
+        master_job_id:
+          type: string
+          nullable: true
+          description: ID of the master job
+
+    JobDetail:
+      allOf:
+        - $ref: "#/components/schemas/Job"
+        - type: object
+          properties:
+            handle:
+              type: string
+              description: Job handle
+            is_repeat:
+              type: boolean
+              description: Whether this job is a repeat/rerun
+            is_test:
+              type: boolean
+              description: Whether this job is a test run
+            is_test_case_job:
+              type: boolean
+              description: Whether this job is a test case job
+            master_job_handle:
+              type: string
+              nullable: true
+              description: Handle of the master job
+            calling_job_handle:
+              type: string
+              nullable: true
+              description: Handle of the calling job
+            lines:
+              type: array
+              description: Execution step details
+              items:
+                $ref: "#/components/schemas/JobLine"
+
+    JobLine:
+      type: object
+      properties:
+        recipe_line_number:
+          type: integer
+          description: Line number in the recipe
+        adapter_name:
+          type: string
+          description: Name of the adapter/connector used
+        adapter_operation:
+          type: string
+          description: Operation performed
+        input:
+          type: object
+          additionalProperties: true
+          description: Input data for this step
+        output:
+          type: object
+          additionalProperties: true
+          description: Output data from this step
+        mask_data:
+          type: boolean
+          description: Whether data is masked
+        line_stat:
+          type: object
+          properties:
+            total:
+              type: number
+              description: Total execution time
+            details:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+
+    JobListResponse:
+      type: object
+      properties:
+        job_succeeded_count:
+          type: integer
+          description: Number of succeeded jobs
+        job_failed_count:
+          type: integer
+          description: Number of failed jobs
+        job_count:
+          type: integer
+          description: Total number of jobs
+        job_scope_count:
+          type: integer
+          description: Number of jobs in current scope
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
 
     ValidationError:
       type: object
