@@ -838,9 +838,35 @@ Thumbs.db
         try:
             with open(config_file) as f:
                 data = json.load(f)
-                return ConfigData.model_validate(data)
+                config_data = ConfigData.model_validate(data)
         except (json.JSONDecodeError, ValueError):
             return ConfigData.model_construct()
+
+        # Auto-migrate: resolve workspace_id from legacy profile field
+        if config_data.profile and config_data.workspace_id is None:
+            self._migrate_profile_to_workspace_id(config_data)
+
+        return config_data
+
+    def _migrate_profile_to_workspace_id(self, config_data: ConfigData) -> None:
+        """Migrate legacy profile field to workspace_id.
+
+        If the config has a profile name but no workspace_id, look up the
+        profile's workspace_id and write it to the config. The profile field
+        is then removed so the file can be shared via Git.
+        """
+        profile_name = config_data.profile
+        if not profile_name:
+            return
+        profile_data = self.profile_manager.get_profile(profile_name)
+        if profile_data is not None:
+            config_data.workspace_id = profile_data.workspace_id
+            config_data.profile = None
+            self.save_config(config_data)
+            click.echo(
+                f"ℹ️  Migrated .workatoenv: profile → workspace_id "
+                f"({config_data.workspace_id})"
+            )
 
     def save_config(self, config_data: ConfigData) -> None:
         """Save configuration to .workatoenv file"""

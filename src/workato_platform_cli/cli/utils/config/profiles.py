@@ -360,13 +360,10 @@ class ProfileManager:
     ) -> str | None:
         """Get current profile name, considering project override"""
         # Priority order:
-        # 1. Project-specific profile override (explicit or legacy)
-        # 2. Environment variable WORKATO_PROFILE
-        # 3. workspace_id matching from .workatoenv
+        # 1. Environment variable WORKATO_PROFILE
+        # 2. workspace_id matching from .workatoenv
+        # 3. Legacy profile override from .workatoenv (deprecated)
         # 4. Global current profile setting
-
-        if project_profile_override:
-            return project_profile_override
 
         env_profile = os.environ.get("WORKATO_PROFILE")
         if env_profile:
@@ -376,6 +373,9 @@ class ProfileManager:
             matched = self.find_profile_by_workspace_id(workspace_id)
             if matched:
                 return matched
+
+        if project_profile_override:
+            return project_profile_override
 
         profiles_config = self.load_profiles()
         return profiles_config.current_profile
