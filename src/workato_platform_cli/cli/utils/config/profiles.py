@@ -345,14 +345,25 @@ class ProfileManager:
         self.save_profiles(profiles_config)
         return True
 
+    def find_profile_by_workspace_id(self, workspace_id: int) -> str | None:
+        """Find a profile name whose workspace_id matches the given value."""
+        profiles_config = self.load_profiles()
+        for name, profile_data in profiles_config.profiles.items():
+            if profile_data.workspace_id == workspace_id:
+                return name
+        return None
+
     def get_current_profile_name(
-        self, project_profile_override: str | None = None
+        self,
+        project_profile_override: str | None = None,
+        workspace_id: int | None = None,
     ) -> str | None:
         """Get current profile name, considering project override"""
         # Priority order:
-        # 1. Project-specific profile override
+        # 1. Project-specific profile override (explicit or legacy)
         # 2. Environment variable WORKATO_PROFILE
-        # 3. Global current profile setting
+        # 3. workspace_id matching from .workatoenv
+        # 4. Global current profile setting
 
         if project_profile_override:
             return project_profile_override
@@ -360,6 +371,11 @@ class ProfileManager:
         env_profile = os.environ.get("WORKATO_PROFILE")
         if env_profile:
             return env_profile
+
+        if workspace_id is not None:
+            matched = self.find_profile_by_workspace_id(workspace_id)
+            if matched:
+                return matched
 
         profiles_config = self.load_profiles()
         return profiles_config.current_profile
@@ -371,10 +387,14 @@ class ProfileManager:
         self.save_profiles(profiles_config)
 
     def get_current_profile_data(
-        self, project_profile_override: str | None = None
+        self,
+        project_profile_override: str | None = None,
+        workspace_id: int | None = None,
     ) -> ProfileData | None:
         """Get current profile data"""
-        profile_name = self.get_current_profile_name(project_profile_override)
+        profile_name = self.get_current_profile_name(
+            project_profile_override, workspace_id=workspace_id
+        )
         if not profile_name:
             return None
         return self.get_profile(profile_name)
@@ -385,7 +405,9 @@ class ProfileManager:
         return profiles_config.profiles.copy()
 
     def resolve_environment_variables(
-        self, project_profile_override: str | None = None
+        self,
+        project_profile_override: str | None = None,
+        workspace_id: int | None = None,
     ) -> tuple[str | None, str | None]:
         """Resolve API token and host with environment variable override support"""
         # Check for environment variable overrides first (highest priority)
@@ -396,7 +418,9 @@ class ProfileManager:
             return env_token, env_host
 
         # Fall back to profile-based configuration
-        profile_name = self.get_current_profile_name(project_profile_override)
+        profile_name = self.get_current_profile_name(
+            project_profile_override, workspace_id=workspace_id
+        )
         if not profile_name:
             return None, None
 
@@ -411,11 +435,13 @@ class ProfileManager:
         return api_token, api_host
 
     def validate_credentials(
-        self, project_profile_override: str | None = None
+        self,
+        project_profile_override: str | None = None,
+        workspace_id: int | None = None,
     ) -> tuple[bool, list[str]]:
         """Validate that credentials are available from environment or profile"""
         api_token, api_host = self.resolve_environment_variables(
-            project_profile_override
+            project_profile_override, workspace_id=workspace_id
         )
         missing_items = []
 

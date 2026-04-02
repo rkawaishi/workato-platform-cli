@@ -194,7 +194,7 @@ async def status(
 
     # Get effective profile name
     current_profile_name = config_manager.profile_manager.get_current_profile_name(
-        project_profile_override
+        project_profile_override, workspace_id=config_data.workspace_id
     )
 
     output_data: dict[str, Any] = {}
@@ -224,7 +224,8 @@ async def status(
             profile_source_location = "~/.workato/profiles"
 
         profile_data = config_manager.profile_manager.get_current_profile_data(
-            project_profile_override
+            project_profile_override,
+            workspace_id=config_data.workspace_id,
         )
 
         output_data["profile"] = {
@@ -247,7 +248,8 @@ async def status(
 
         # Authentication information
         api_token, _ = config_manager.profile_manager.resolve_environment_variables(
-            project_profile_override
+            project_profile_override,
+            workspace_id=config_data.workspace_id,
         )
 
         if api_token:
@@ -304,18 +306,19 @@ async def status(
     # Show source of profile selection
     if project_profile_override:
         click.echo("   Source: Project override (from .workatoenv)")
+    elif os.environ.get("WORKATO_PROFILE"):
+        click.echo("   Source: Environment variable (WORKATO_PROFILE)")
+    elif config_data.workspace_id is not None:
+        click.echo("   Source: Workspace ID match (from .workatoenv)")
     else:
-        env_profile = os.environ.get("WORKATO_PROFILE")
-        if env_profile:
-            click.echo("   Source: Environment variable (WORKATO_PROFILE)")
-        else:
-            click.echo("   Source: Global setting (~/.workato/profiles)")
+        click.echo("   Source: Global setting (~/.workato/profiles)")
 
     click.echo()
 
     # Show profile details
     profile_data = config_manager.profile_manager.get_current_profile_data(
-        project_profile_override
+        project_profile_override,
+        workspace_id=config_data.workspace_id,
     )
 
     if profile_data:
@@ -330,7 +333,8 @@ async def status(
 
         # Check if token is available using profile manager resolution
         api_token, _ = config_manager.profile_manager.resolve_environment_variables(
-            project_profile_override
+            project_profile_override,
+            workspace_id=config_data.workspace_id,
         )
 
         if api_token:

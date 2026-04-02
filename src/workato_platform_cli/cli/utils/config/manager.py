@@ -911,7 +911,7 @@ Thumbs.db
         workspace_config.project_name = project_config.project_name
         workspace_config.project_path = str(relative_path)
         workspace_config.folder_id = project_config.folder_id
-        workspace_config.profile = project_config.profile
+        workspace_config.workspace_id = project_config.workspace_id
         workspace_manager.save_config(workspace_config)
 
         click.echo(f"✅ Selected '{project_config.project_name}' as current project")
@@ -973,7 +973,7 @@ Thumbs.db
                 selected_path.relative_to(workspace_root)
             )
             workspace_config.folder_id = selected_config.folder_id
-            workspace_config.profile = selected_config.profile
+            workspace_config.workspace_id = selected_config.workspace_id
             workspace_manager.save_config(workspace_config)
 
             click.echo(f"✅ Selected '{selected_name}' as current project")
@@ -1086,14 +1086,16 @@ Thumbs.db
     def validate_environment_config(self) -> tuple[bool, list[str]]:
         """Validate environment configuration"""
         config_data = self.load_config()
-        return self.profile_manager.validate_credentials(config_data.profile)
+        return self.profile_manager.validate_credentials(
+            config_data.profile, workspace_id=config_data.workspace_id
+        )
 
     @property
     def api_token(self) -> str | None:
         """Get API token"""
         config_data = self.load_config()
         api_token, _ = self.profile_manager.resolve_environment_variables(
-            config_data.profile
+            config_data.profile, workspace_id=config_data.workspace_id
         )
         return api_token
 
@@ -1102,7 +1104,7 @@ Thumbs.db
         """Save API token to current profile"""
         config_data = self.load_config()
         current_profile_name = self.profile_manager.get_current_profile_name(
-            config_data.profile
+            config_data.profile, workspace_id=config_data.workspace_id
         )
 
         if not current_profile_name:
@@ -1139,7 +1141,7 @@ Thumbs.db
         """Get API host"""
         config_data = self.load_config()
         _, api_host = self.profile_manager.resolve_environment_variables(
-            config_data.profile
+            config_data.profile, workspace_id=config_data.workspace_id
         )
         return api_host
 
@@ -1162,7 +1164,7 @@ Thumbs.db
         # Get current profile
         config_data = self.load_config()
         current_profile_name = self.profile_manager.get_current_profile_name(
-            config_data.profile
+            config_data.profile, workspace_id=config_data.workspace_id
         )
         if not current_profile_name:
             current_profile_name = "default"

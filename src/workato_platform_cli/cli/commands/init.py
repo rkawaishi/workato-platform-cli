@@ -212,7 +212,7 @@ async def init(
     config_data = config_manager.load_config()
     project_profile_override = config_data.profile
     api_token, api_host = config_manager.profile_manager.resolve_environment_variables(
-        project_profile_override
+        project_profile_override, workspace_id=config_data.workspace_id
     )
 
     # Populate profile data for JSON output

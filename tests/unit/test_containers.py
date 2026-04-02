@@ -119,7 +119,8 @@ def test_create_profile_aware_workato_config_with_cli_profile() -> None:
 
     # Verify CLI profile was used over project profile
     mock_config_manager.profile_manager.resolve_environment_variables.assert_called_with(
-        "cli_profile"
+        "cli_profile",
+        workspace_id=mock_config_manager.load_config().workspace_id,
     )
 
     # Verify configuration was created correctly

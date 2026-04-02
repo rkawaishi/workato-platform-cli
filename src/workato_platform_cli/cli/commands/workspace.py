@@ -42,7 +42,7 @@ async def workspace(
     # Get current profile data for region info
     config_data = config_manager.load_config()
     current_profile_data = config_manager.profile_manager.get_current_profile_data(
-        config_data.profile
+        config_data.profile, workspace_id=config_data.workspace_id
     )
 
     if current_profile_data:
@@ -54,7 +54,7 @@ async def workspace(
 
         # Show which profile is being used
         current_profile_name = config_manager.profile_manager.get_current_profile_name(
-            config_data.profile
+            config_data.profile, workspace_id=config_data.workspace_id
         )
         click.echo(f"   Profile: {current_profile_name}")
     else:

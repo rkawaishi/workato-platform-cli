@@ -824,7 +824,7 @@ async def test_list_projects_json_output_mode(
 
     # Mock project config manager
     project_config = ConfigData(
-        project_id=123, project_name="Test Project", folder_id=456, profile="dev"
+        project_id=123, project_name="Test Project", folder_id=456, workspace_id=789
     )
     mock_project_config_manager = Mock()
     mock_project_config_manager.load_config.return_value = project_config
@@ -852,7 +852,7 @@ async def test_list_projects_json_output_mode(
     assert project["is_current"] is True
     assert project["project_id"] == 123
     assert project["folder_id"] == 456
-    assert project["profile"] == "dev"
+    assert project["workspace_id"] == 789
     assert project["configured"] is True
 
 

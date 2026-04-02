@@ -26,16 +26,16 @@ def create_profile_aware_workato_config(
     config_manager: ConfigManager, cli_profile: str | None = None
 ) -> Configuration:
     """Create Workato API configuration using profile-based resolution"""
-    # Get project profile override from project config
+    # Get config data for profile resolution
     config_data = config_manager.load_config()
-    project_profile_override = config_data.profile
 
-    # Use CLI profile if provided, otherwise use project override
-    effective_profile_override = cli_profile or project_profile_override
+    # Use CLI profile if provided, otherwise fall back to legacy profile
+    # or workspace_id-based resolution
+    effective_profile_override = cli_profile or config_data.profile
 
-    # Resolve credentials using profile manager
+    # Resolve credentials using profile manager (workspace_id for auto-matching)
     api_token, api_host = config_manager.profile_manager.resolve_environment_variables(
-        effective_profile_override
+        effective_profile_override, workspace_id=config_data.workspace_id
     )
 
     if not api_token or not api_host:
