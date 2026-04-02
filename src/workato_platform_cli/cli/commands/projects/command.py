@@ -132,6 +132,7 @@ async def use(
         workspace_config.project_path = relative_project_path
         workspace_config.folder_id = project_config.folder_id
         workspace_config.workspace_id = project_config.workspace_id
+        workspace_config.profile = None  # Clear legacy profile
 
         config_manager.save_config(workspace_config)
 
@@ -268,6 +269,7 @@ async def switch(
         workspace_config.project_path = relative_project_path
         workspace_config.folder_id = selected_config.folder_id
         workspace_config.workspace_id = selected_config.workspace_id
+        workspace_config.profile = None  # Clear legacy profile
 
         config_manager.save_config(workspace_config)
 

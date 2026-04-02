@@ -213,12 +213,20 @@ async def status(
         # Profile information
         profile_source_type = None
         profile_source_location = None
-        if project_profile_override:
-            profile_source_type = "project_override"
-            profile_source_location = ".workatoenv"
-        elif os.environ.get("WORKATO_PROFILE"):
+        if os.environ.get("WORKATO_PROFILE"):
             profile_source_type = "environment_variable"
             profile_source_location = "WORKATO_PROFILE"
+        elif (
+            config_data.workspace_id is not None
+            and config_manager.profile_manager.find_profile_by_workspace_id(
+                config_data.workspace_id
+            )
+        ):
+            profile_source_type = "workspace_id_match"
+            profile_source_location = ".workatoenv"
+        elif project_profile_override:
+            profile_source_type = "project_override"
+            profile_source_location = ".workatoenv"
         else:
             profile_source_type = "global_default"
             profile_source_location = "~/.workato/profiles"
@@ -304,12 +312,17 @@ async def status(
     click.echo(f"   Current Profile: {current_profile_name}")
 
     # Show source of profile selection
-    if project_profile_override:
-        click.echo("   Source: Project override (from .workatoenv)")
-    elif os.environ.get("WORKATO_PROFILE"):
+    if os.environ.get("WORKATO_PROFILE"):
         click.echo("   Source: Environment variable (WORKATO_PROFILE)")
-    elif config_data.workspace_id is not None:
+    elif (
+        config_data.workspace_id is not None
+        and config_manager.profile_manager.find_profile_by_workspace_id(
+            config_data.workspace_id
+        )
+    ):
         click.echo("   Source: Workspace ID match (from .workatoenv)")
+    elif project_profile_override:
+        click.echo("   Source: Project override (from .workatoenv)")
     else:
         click.echo("   Source: Global setting (~/.workato/profiles)")
 

@@ -217,15 +217,16 @@ async def init(
 
     # Populate profile data for JSON output
     if output_data:
+        resolved_profile_name = config_manager.profile_manager.get_current_profile_name(
+            project_profile_override,
+            workspace_id=config_data.workspace_id,
+        )
         profile_data = config_manager.profile_manager.get_profile(
-            project_profile_override
-            or config_manager.profile_manager.get_current_profile_name()
-            or "",
+            resolved_profile_name or "",
         )
         if profile_data:
             output_data["profile"] = {
-                "name": project_profile_override
-                or config_manager.profile_manager.get_current_profile_name(),
+                "name": resolved_profile_name,
                 "region": profile_data.region,
                 "region_name": profile_data.region_name,
                 "api_url": profile_data.region_url,

@@ -938,6 +938,7 @@ Thumbs.db
         workspace_config.project_path = str(relative_path)
         workspace_config.folder_id = project_config.folder_id
         workspace_config.workspace_id = project_config.workspace_id
+        workspace_config.profile = None  # Clear legacy profile
         workspace_manager.save_config(workspace_config)
 
         click.echo(f"✅ Selected '{project_config.project_name}' as current project")
