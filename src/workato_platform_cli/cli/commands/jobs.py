@@ -61,7 +61,9 @@ async def list_jobs(
         elapsed = spinner.stop()
 
     items = response.items or []
-    click.echo(f"📋 Jobs for Recipe {recipe_id} ({len(items)} found) - ({elapsed:.1f}s)")
+    click.echo(
+        f"📋 Jobs for Recipe {recipe_id} ({len(items)} found) - ({elapsed:.1f}s)"
+    )
 
     if response.job_count is not None:
         click.echo(
@@ -157,15 +159,23 @@ def display_job_detail(job: JobDetail) -> None:
     if job.error:
         click.echo(f"     ⚠️  Error: {job.error}")
     if job.calling_recipe_id:
-        click.echo(f"     📞 Called by Recipe: {job.calling_recipe_id} (Job: {job.calling_job_id})")
+        msg = f"     📞 Called by Recipe: {job.calling_recipe_id}"
+        if job.calling_job_id is not None:
+            msg += f" (Job: {job.calling_job_id})"
+        click.echo(msg)
     if job.root_recipe_id:
-        click.echo(f"     🌳 Root Recipe: {job.root_recipe_id} (Job: {job.root_job_id})")
+        msg = f"     🌳 Root Recipe: {job.root_recipe_id}"
+        if job.root_job_id is not None:
+            msg += f" (Job: {job.root_job_id})"
+        click.echo(msg)
 
     if job.lines:
         click.echo()
         click.echo(f"  📊 Execution Steps ({len(job.lines)} steps)")
         for line in job.lines:
-            line_num = line.recipe_line_number or "?"
+            line_num = (
+                line.recipe_line_number if line.recipe_line_number is not None else "?"
+            )
             adapter = line.adapter_name or "unknown"
             operation = line.adapter_operation or ""
             click.echo(f"     Step {line_num}: {adapter} → {operation}")
