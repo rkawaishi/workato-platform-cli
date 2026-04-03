@@ -12,6 +12,7 @@ from workato_platform_cli.cli.commands import (
     data_tables,
     guide,
     init,
+    jobs,
     profiles,
     properties,
     pull,
@@ -98,6 +99,7 @@ def cli(
             assets,
             workspace,
             recipes,
+            jobs,
         ]
     )
 
@@ -120,6 +122,7 @@ cli.add_command_with_alias(data_tables.data_tables, alias="data-table")
 cli.add_command_with_alias(connections.connections, alias="connection")
 cli.add_command_with_alias(connectors.connectors, alias="connector")
 cli.add_command_with_alias(recipes.recipes, alias="recipe")
+cli.add_command_with_alias(jobs.jobs, alias="job")
 
 # Information commands
 cli.add_command_with_alias(assets.assets, alias="asset")
