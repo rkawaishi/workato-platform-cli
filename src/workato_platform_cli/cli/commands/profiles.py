@@ -649,8 +649,8 @@ async def create(
             ) = await config_manager.profile_manager.create_profile_interactive(
                 profile_name
             )
-        except click.ClickException:
-            click.echo("❌ Profile creation cancelled")
+        except click.ClickException as e:
+            click.echo(f"❌ Profile creation cancelled: {e.message}")
             return
 
     # Save profile (common for both modes)
