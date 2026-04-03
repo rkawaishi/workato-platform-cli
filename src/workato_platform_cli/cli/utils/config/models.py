@@ -20,7 +20,10 @@ class ConfigData(BaseModel):
         None, description="Relative path to project (workspace only)"
     )
     folder_id: int | None = Field(None, description="Folder ID")
-    profile: str | None = Field(None, description="Profile override")
+    workspace_id: int | None = Field(None, description="Workspace ID")
+    profile: str | None = Field(
+        None, description="Profile override (deprecated, use workspace_id)"
+    )
 
 
 class RegionInfo(BaseModel):

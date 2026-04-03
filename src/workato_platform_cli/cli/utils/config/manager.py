@@ -838,9 +838,35 @@ Thumbs.db
         try:
             with open(config_file) as f:
                 data = json.load(f)
-                return ConfigData.model_validate(data)
+                config_data = ConfigData.model_validate(data)
         except (json.JSONDecodeError, ValueError):
             return ConfigData.model_construct()
+
+        # Auto-migrate: resolve workspace_id from legacy profile field
+        if config_data.profile and config_data.workspace_id is None:
+            self._migrate_profile_to_workspace_id(config_data)
+
+        return config_data
+
+    def _migrate_profile_to_workspace_id(self, config_data: ConfigData) -> None:
+        """Migrate legacy profile field to workspace_id.
+
+        If the config has a profile name but no workspace_id, look up the
+        profile's workspace_id and write it to the config. The profile field
+        is then removed so the file can be shared via Git.
+        """
+        profile_name = config_data.profile
+        if not profile_name:
+            return
+        profile_data = self.profile_manager.get_profile(profile_name)
+        if profile_data is not None:
+            config_data.workspace_id = profile_data.workspace_id
+            config_data.profile = None
+            self.save_config(config_data)
+            click.echo(
+                f"ℹ️  Migrated .workatoenv: profile → workspace_id "
+                f"({config_data.workspace_id})"
+            )
 
     def save_config(self, config_data: ConfigData) -> None:
         """Save configuration to .workatoenv file"""
@@ -911,7 +937,8 @@ Thumbs.db
         workspace_config.project_name = project_config.project_name
         workspace_config.project_path = str(relative_path)
         workspace_config.folder_id = project_config.folder_id
-        workspace_config.profile = project_config.profile
+        workspace_config.workspace_id = project_config.workspace_id
+        workspace_config.profile = None  # Clear legacy profile
         workspace_manager.save_config(workspace_config)
 
         click.echo(f"✅ Selected '{project_config.project_name}' as current project")
@@ -973,7 +1000,7 @@ Thumbs.db
                 selected_path.relative_to(workspace_root)
             )
             workspace_config.folder_id = selected_config.folder_id
-            workspace_config.profile = selected_config.profile
+            workspace_config.workspace_id = selected_config.workspace_id
             workspace_manager.save_config(workspace_config)
 
             click.echo(f"✅ Selected '{selected_name}' as current project")
@@ -1086,14 +1113,16 @@ Thumbs.db
     def validate_environment_config(self) -> tuple[bool, list[str]]:
         """Validate environment configuration"""
         config_data = self.load_config()
-        return self.profile_manager.validate_credentials(config_data.profile)
+        return self.profile_manager.validate_credentials(
+            config_data.profile, workspace_id=config_data.workspace_id
+        )
 
     @property
     def api_token(self) -> str | None:
         """Get API token"""
         config_data = self.load_config()
         api_token, _ = self.profile_manager.resolve_environment_variables(
-            config_data.profile
+            config_data.profile, workspace_id=config_data.workspace_id
         )
         return api_token
 
@@ -1102,7 +1131,7 @@ Thumbs.db
         """Save API token to current profile"""
         config_data = self.load_config()
         current_profile_name = self.profile_manager.get_current_profile_name(
-            config_data.profile
+            config_data.profile, workspace_id=config_data.workspace_id
         )
 
         if not current_profile_name:
@@ -1139,7 +1168,7 @@ Thumbs.db
         """Get API host"""
         config_data = self.load_config()
         _, api_host = self.profile_manager.resolve_environment_variables(
-            config_data.profile
+            config_data.profile, workspace_id=config_data.workspace_id
         )
         return api_host
 
@@ -1162,7 +1191,7 @@ Thumbs.db
         # Get current profile
         config_data = self.load_config()
         current_profile_name = self.profile_manager.get_current_profile_name(
-            config_data.profile
+            config_data.profile, workspace_id=config_data.workspace_id
         )
         if not current_profile_name:
             current_profile_name = "default"

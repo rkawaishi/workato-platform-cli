@@ -131,7 +131,8 @@ async def use(
         workspace_config.project_name = project_config.project_name
         workspace_config.project_path = relative_project_path
         workspace_config.folder_id = project_config.folder_id
-        workspace_config.profile = project_config.profile
+        workspace_config.workspace_id = project_config.workspace_id
+        workspace_config.profile = None  # Clear legacy profile
 
         config_manager.save_config(workspace_config)
 
@@ -142,8 +143,8 @@ async def use(
             click.echo(f"   Name: {project_config.project_name}")
         if project_config.folder_id:
             click.echo(f"   Folder ID: {project_config.folder_id}")
-        if project_config.profile:
-            click.echo(f"   Profile: {project_config.profile}")
+        if project_config.workspace_id:
+            click.echo(f"   Workspace ID: {project_config.workspace_id}")
         click.echo(f"   Directory: {relative_project_path}")
 
     except Exception as e:
@@ -267,7 +268,8 @@ async def switch(
         workspace_config.project_name = selected_config.project_name
         workspace_config.project_path = relative_project_path
         workspace_config.folder_id = selected_config.folder_id
-        workspace_config.profile = selected_config.profile
+        workspace_config.workspace_id = selected_config.workspace_id
+        workspace_config.profile = None  # Clear legacy profile
 
         config_manager.save_config(workspace_config)
 
@@ -278,8 +280,8 @@ async def switch(
             click.echo(f"   Name: {selected_config.project_name}")
         if selected_config.folder_id:
             click.echo(f"   Folder ID: {selected_config.folder_id}")
-        if selected_config.profile:
-            click.echo(f"   Profile: {selected_config.profile}")
+        if selected_config.workspace_id:
+            click.echo(f"   Workspace ID: {selected_config.workspace_id}")
         click.echo(f"   Directory: {relative_project_path}")
 
     except Exception as e:
@@ -335,7 +337,7 @@ async def _output_json(
                     "is_current": project_name == current_project_name,
                     "project_id": config_data.project_id,
                     "folder_id": config_data.folder_id,
-                    "profile": config_data.profile,
+                    "workspace_id": config_data.workspace_id,
                     "configured": True,
                 }
             else:
@@ -370,7 +372,7 @@ async def _output_json(
             }
 
             if local_match:
-                remote_info["local_profile"] = local_match.profile
+                remote_info["local_workspace_id"] = local_match.workspace_id
 
             output_data["remote_projects"].append(remote_info)
 
@@ -407,8 +409,8 @@ async def _output_table(
                     click.echo(f"    Project ID: {config_data.project_id}")
                 if config_data.folder_id:
                     click.echo(f"    Folder ID: {config_data.folder_id}")
-                if config_data.profile:
-                    click.echo(f"    Profile: {config_data.profile}")
+                if config_data.workspace_id:
+                    click.echo(f"    Workspace ID: {config_data.workspace_id}")
                 if workspace_root:
                     click.echo(
                         f"    Directory: {project_path.relative_to(workspace_root)}"
@@ -452,7 +454,7 @@ async def _output_table(
                 "name": project_name,
                 "project_id": project_id,
                 "folder_id": config_data.folder_id if config_data else None,
-                "profile": config_data.profile if config_data else None,
+                "workspace_id": config_data.workspace_id if config_data else None,
                 "local_path": project_path,
                 "is_local": True,
                 "is_remote": False,
