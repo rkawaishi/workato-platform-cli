@@ -168,15 +168,15 @@ async def generate_schema(
     try:
         if json_file:
             with open(json_file) as f:
-                sample_data = json.load(f)
+                raw_json = f.read()
             result = await workato_api_client.sdk_api.generate_schema_from_json(
-                body=sample_data,
+                body={"sample": raw_json},
             )
         else:
             with open(csv_file) as f:  # type: ignore[arg-type]
                 csv_content = f.read()
             result = await workato_api_client.sdk_api.generate_schema_from_csv(
-                body=csv_content,
+                body={"sample": csv_content},
                 col_sep=col_sep,
             )
     finally:

@@ -872,7 +872,7 @@ class ConnectorsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CustomConnectorResponse",
+            '200': "CustomConnector",
             '401': "Error",
         }
         response_data = await self.api_client.call_api(
@@ -880,10 +880,12 @@ class ConnectorsApi:
             _request_timeout=_request_timeout
         )
         await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
+        # API returns {"data": {...}}, extract inner object
+        import json as _json
+        raw = _json.loads(response_data.data)
+        if isinstance(raw, dict) and "data" in raw:
+            raw = raw["data"]
+        return CustomConnectorResponse.from_dict(raw)
 
 
     def _create_custom_connector_serialize(
@@ -969,20 +971,16 @@ class ConnectorsApi:
             _host_index=_host_index
         )
 
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CustomConnectorResponse",
-            '401': "Error",
-            '404': "Error",
-        }
         response_data = await self.api_client.call_api(
             *_param,
             _request_timeout=_request_timeout
         )
         await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
+        import json as _json
+        raw = _json.loads(response_data.data)
+        if isinstance(raw, dict) and "data" in raw:
+            raw = raw["data"]
+        return CustomConnectorResponse.from_dict(raw)
 
 
     def _update_custom_connector_serialize(
@@ -1068,20 +1066,16 @@ class ConnectorsApi:
             _host_index=_host_index
         )
 
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CustomConnectorResponse",
-            '401': "Error",
-            '404': "Error",
-        }
         response_data = await self.api_client.call_api(
             *_param,
             _request_timeout=_request_timeout
         )
         await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
+        import json as _json
+        raw = _json.loads(response_data.data)
+        if isinstance(raw, dict) and "data" in raw:
+            raw = raw["data"]
+        return CustomConnectorResponse.from_dict(raw)
 
 
     def _release_custom_connector_serialize(

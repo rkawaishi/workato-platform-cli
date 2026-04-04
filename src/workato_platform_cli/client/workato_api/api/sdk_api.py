@@ -86,7 +86,7 @@ class SdkApi:
     @validate_call
     async def generate_schema_from_csv(
         self,
-        body: StrictStr,
+        body: Dict[str, Any],
         col_sep: Annotated[Optional[StrictStr], Field(description="CSV column separator")] = None,
         _request_timeout: Union[
             None,
@@ -116,7 +116,7 @@ class SdkApi:
             body=body,
             endpoint='/api/sdk/generate_schema/csv',
             _request_auth=_request_auth,
-            _content_type=_content_type or 'text/csv',
+            _content_type=_content_type or 'application/json',
             _headers=_headers,
             _host_index=_host_index,
             col_sep=col_sep,
