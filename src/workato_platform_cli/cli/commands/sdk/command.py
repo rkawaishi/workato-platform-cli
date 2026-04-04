@@ -98,23 +98,16 @@ async def push(
 ) -> None:
     """Push connector code to Workato platform"""
     connector_path = Path(connector)
-    spinner = Spinner("Pushing connector")
-    spinner.start()
 
-    try:
-        await push_connector(
-            workato_api_client=workato_api_client,
-            connector_path=connector_path,
-            title=title,
-            description=description,
-            notes=notes,
-            connector_id=connector_id,
-            release=not no_release,
-        )
-    finally:
-        elapsed = spinner.stop()
-
-    click.echo(f"  Done ({elapsed:.1f}s)")
+    await push_connector(
+        workato_api_client=workato_api_client,
+        connector_path=connector_path,
+        title=title,
+        description=description,
+        notes=notes,
+        connector_id=connector_id,
+        release=not no_release,
+    )
 
 
 # --- sdk generate ---

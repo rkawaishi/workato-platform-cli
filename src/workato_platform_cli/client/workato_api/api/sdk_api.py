@@ -37,7 +37,7 @@ class SdkApi:
     @validate_call
     async def generate_schema_from_json(
         self,
-        body: Dict[str, Any],
+        body: Any,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],

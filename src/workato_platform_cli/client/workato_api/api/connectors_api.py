@@ -880,7 +880,13 @@ class ConnectorsApi:
             _request_timeout=_request_timeout
         )
         await response_data.read()
-        # API returns {"data": {...}}, extract inner object
+        if response_data.status not in (200, 201):
+            from workato_platform_cli.client.workato_api.exceptions import ApiException
+            raise ApiException(
+                status=response_data.status,
+                reason=response_data.reason,
+                http_resp=response_data,
+            )
         import json as _json
         raw = _json.loads(response_data.data)
         if isinstance(raw, dict) and "data" in raw:
