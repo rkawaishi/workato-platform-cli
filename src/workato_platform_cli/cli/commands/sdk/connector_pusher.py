@@ -54,5 +54,8 @@ async def push_connector(
                 id=response.id,
             )
         )
-        version = release_response.latest_released_version or "latest"
-        click.echo(f"  🚀 Released version {version}")
+        if release_response.id is not None:
+            version = release_response.latest_released_version or "?"
+            click.echo(f"  🚀 Released version {version}")
+        else:
+            click.echo("  ℹ️  Already released (no code changes detected)")
