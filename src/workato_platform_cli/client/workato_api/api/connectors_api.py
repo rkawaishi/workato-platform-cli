@@ -20,7 +20,9 @@ from pydantic import Field, StrictInt
 from typing import Optional
 from typing_extensions import Annotated
 from workato_platform_cli.client.workato_api.models.custom_connector_code_response import CustomConnectorCodeResponse
+from workato_platform_cli.client.workato_api.models.custom_connector_create_request import CustomConnectorCreateRequest
 from workato_platform_cli.client.workato_api.models.custom_connector_list_response import CustomConnectorListResponse
+from workato_platform_cli.client.workato_api.models.custom_connector_response import CustomConnectorResponse
 from workato_platform_cli.client.workato_api.models.platform_connector_list_response import PlatformConnectorListResponse
 
 from workato_platform_cli.client.workato_api.api_client import ApiClient, RequestSerialized
@@ -837,4 +839,293 @@ class ConnectorsApi:
             _request_auth=_request_auth
         )
 
+
+    @validate_call
+    async def create_custom_connector(
+        self,
+        custom_connector_create_request: CustomConnectorCreateRequest,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> CustomConnectorResponse:
+        """Create a new custom connector
+
+        :param custom_connector_create_request: Connector details (required)
+        :return: Created connector
+        """ # noqa: E501
+
+        _param = self._create_custom_connector_serialize(
+            custom_connector_create_request=custom_connector_create_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CustomConnector",
+            '401': "Error",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        if response_data.status not in (200, 201):
+            from workato_platform_cli.client.workato_api.exceptions import ApiException
+            raise ApiException(
+                status=response_data.status,
+                reason=response_data.reason,
+                http_resp=response_data,
+            )
+        import json as _json
+        raw = _json.loads(response_data.data)
+        if isinstance(raw, dict) and "data" in raw:
+            raw = raw["data"]
+        return CustomConnectorResponse.from_dict(raw)
+
+
+    def _create_custom_connector_serialize(
+        self,
+        custom_connector_create_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+        _collection_formats: Dict[str, str] = {}
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        if custom_connector_create_request is not None:
+            _body_params = custom_connector_create_request
+
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                ['application/json']
+            )
+        _header_params['Content-Type'] = self.api_client.select_header_content_type(
+            ['application/json']
+        )
+
+        _auth_settings: List[str] = ['BearerAuth']
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/custom_connectors',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+    @validate_call
+    async def update_custom_connector(
+        self,
+        id: Annotated[StrictInt, Field(description="Custom connector ID")],
+        custom_connector_create_request: CustomConnectorCreateRequest,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> CustomConnectorResponse:
+        """Update an existing custom connector
+
+        :param id: Custom connector ID (required)
+        :param custom_connector_create_request: Updated connector details (required)
+        :return: Updated connector
+        """ # noqa: E501
+
+        _param = self._update_custom_connector_serialize(
+            id=id,
+            custom_connector_create_request=custom_connector_create_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        import json as _json
+        raw = _json.loads(response_data.data)
+        if isinstance(raw, dict) and "data" in raw:
+            raw = raw["data"]
+        return CustomConnectorResponse.from_dict(raw)
+
+
+    def _update_custom_connector_serialize(
+        self,
+        id,
+        custom_connector_create_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+        _collection_formats: Dict[str, str] = {}
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        if id is not None:
+            _path_params['id'] = id
+        if custom_connector_create_request is not None:
+            _body_params = custom_connector_create_request
+
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                ['application/json']
+            )
+        _header_params['Content-Type'] = self.api_client.select_header_content_type(
+            ['application/json']
+        )
+
+        _auth_settings: List[str] = ['BearerAuth']
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/custom_connectors/{id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+    @validate_call
+    async def release_custom_connector(
+        self,
+        id: Annotated[StrictInt, Field(description="Custom connector ID")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> CustomConnectorResponse:
+        """Release the latest version of a custom connector
+
+        :param id: Custom connector ID (required)
+        :return: Released connector
+        """ # noqa: E501
+
+        _param = self._release_custom_connector_serialize(
+            id=id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        import json as _json
+        raw = _json.loads(response_data.data)
+        if isinstance(raw, dict) and "data" in raw:
+            raw = raw["data"]
+        return CustomConnectorResponse.from_dict(raw)
+
+
+    def _release_custom_connector_serialize(
+        self,
+        id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+        _collection_formats: Dict[str, str] = {}
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        if id is not None:
+            _path_params['id'] = id
+
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                ['application/json']
+            )
+
+        _auth_settings: List[str] = ['BearerAuth']
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/custom_connectors/{id}/release',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
 

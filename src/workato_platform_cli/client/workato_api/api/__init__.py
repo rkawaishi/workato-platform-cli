@@ -8,6 +8,7 @@ from workato_platform_cli.client.workato_api.api.connectors_api import Connector
 from workato_platform_cli.client.workato_api.api.data_tables_api import DataTablesApi
 from workato_platform_cli.client.workato_api.api.export_api import ExportApi
 from workato_platform_cli.client.workato_api.api.jobs_api import JobsApi
+from workato_platform_cli.client.workato_api.api.sdk_api import SdkApi
 from workato_platform_cli.client.workato_api.api.folders_api import FoldersApi
 from workato_platform_cli.client.workato_api.api.packages_api import PackagesApi
 from workato_platform_cli.client.workato_api.api.projects_api import ProjectsApi
