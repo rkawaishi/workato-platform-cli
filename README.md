@@ -33,6 +33,7 @@ Get the Workato CLI running in 5 minutes.
 
 - Python 3.11+
 - Workato account with API token
+- Ruby 2.7+ and `workato-connector-sdk` gem（`workato sdk exec` / `oauth2` を使う場合のみ）
 
 ### Getting Your API Token
 
@@ -53,7 +54,7 @@ pip install workato-platform-cli
 ### From Source
 
 ```bash
-git clone https://github.com/workato-devs/workato-platform-cli.git
+git clone https://github.com/rkawaishi/workato-platform-cli.git
 cd workato-platform-cli
 make install
 ```
