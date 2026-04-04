@@ -772,6 +772,7 @@ async def test_status_json_with_project_override(
                 project_id=123,
                 project_name="Test Project",
                 folder_id=456,
+                workspace_id=None,
             )
         ),
         get_current_profile_name=Mock(return_value="dev-profile"),

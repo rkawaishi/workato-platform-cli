@@ -3,9 +3,11 @@
 # import apis into api package
 from workato_platform_cli.client.workato_api.api.api_platform_api import APIPlatformApi
 from workato_platform_cli.client.workato_api.api.connections_api import ConnectionsApi
+from workato_platform_cli.client.workato_api.api.custom_oauth_profiles_api import CustomOAuthProfilesApi
 from workato_platform_cli.client.workato_api.api.connectors_api import ConnectorsApi
 from workato_platform_cli.client.workato_api.api.data_tables_api import DataTablesApi
 from workato_platform_cli.client.workato_api.api.export_api import ExportApi
+from workato_platform_cli.client.workato_api.api.jobs_api import JobsApi
 from workato_platform_cli.client.workato_api.api.sdk_api import SdkApi
 from workato_platform_cli.client.workato_api.api.folders_api import FoldersApi
 from workato_platform_cli.client.workato_api.api.packages_api import PackagesApi

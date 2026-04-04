@@ -12,6 +12,8 @@ from workato_platform_cli.cli.commands import (
     data_tables,
     guide,
     init,
+    jobs,
+    oauth_profiles,
     profiles,
     properties,
     pull,
@@ -100,6 +102,8 @@ def cli(
             workspace,
             recipes,
             sdk,
+            oauth_profiles,
+            jobs,
         ]
     )
 
@@ -123,6 +127,8 @@ cli.add_command_with_alias(connections.connections, alias="connection")
 cli.add_command_with_alias(connectors.connectors, alias="connector")
 cli.add_command_with_alias(recipes.recipes, alias="recipe")
 cli.add_command(sdk.sdk)
+cli.add_command_with_alias(jobs.jobs, alias="job")
+cli.add_command_with_alias(oauth_profiles.oauth_profiles, alias="oauth-profile")
 
 # Information commands
 cli.add_command_with_alias(assets.assets, alias="asset")

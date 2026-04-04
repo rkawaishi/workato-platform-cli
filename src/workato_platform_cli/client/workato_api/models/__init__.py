@@ -50,6 +50,10 @@ from workato_platform_cli.client.workato_api.models.data_table_list_response imp
 from workato_platform_cli.client.workato_api.models.data_table_relation import DataTableRelation
 from workato_platform_cli.client.workato_api.models.delete_project403_response import DeleteProject403Response
 from workato_platform_cli.client.workato_api.models.error import Error
+from workato_platform_cli.client.workato_api.models.job import Job
+from workato_platform_cli.client.workato_api.models.job_detail import JobDetail
+from workato_platform_cli.client.workato_api.models.job_line import JobLine
+from workato_platform_cli.client.workato_api.models.job_list_response import JobListResponse
 from workato_platform_cli.client.workato_api.models.export_manifest_request import ExportManifestRequest
 from workato_platform_cli.client.workato_api.models.export_manifest_response import ExportManifestResponse
 from workato_platform_cli.client.workato_api.models.export_manifest_response_result import ExportManifestResponseResult
