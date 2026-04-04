@@ -13,6 +13,9 @@ except ImportError:
 from workato_platform_cli.client.workato_api.api.api_platform_api import APIPlatformApi
 from workato_platform_cli.client.workato_api.api.connections_api import ConnectionsApi
 from workato_platform_cli.client.workato_api.api.connectors_api import ConnectorsApi
+from workato_platform_cli.client.workato_api.api.custom_oauth_profiles_api import (
+    CustomOAuthProfilesApi,
+)
 from workato_platform_cli.client.workato_api.api.data_tables_api import DataTablesApi
 from workato_platform_cli.client.workato_api.api.export_api import ExportApi
 from workato_platform_cli.client.workato_api.api.folders_api import FoldersApi
@@ -112,6 +115,7 @@ class Workato:
         self.data_tables_api = DataTablesApi(self._api_client)
         self.connectors_api = ConnectorsApi(self._api_client)
         self.api_platform_api = APIPlatformApi(self._api_client)
+        self.oauth_profiles_api = CustomOAuthProfilesApi(self._api_client)
         self.jobs_api = JobsApi(self._api_client)
 
     @property
