@@ -16,6 +16,7 @@ from aiohttp import web
 async def run_oauth2_flow(
     connector_path: str,
     settings_path: str | None = None,
+    connection_name: str | None = None,
     port: int = 45555,
     ip: str = "127.0.0.1",
     use_https: bool = False,
@@ -31,7 +32,7 @@ async def run_oauth2_flow(
     Returns dict with token response fields.
     """
     # Extract OAuth config from connector using Ruby
-    oauth_config = _extract_oauth_config(connector_path, settings_path)
+    oauth_config = _extract_oauth_config(connector_path, settings_path, connection_name)
 
     authorize_url = oauth_config.get("authorize_url")
     token_url = oauth_config.get("token_url")
@@ -208,6 +209,7 @@ async def run_oauth2_flow(
 def _extract_oauth_config(
     connector_path: str,
     settings_path: str | None = None,
+    connection_name: str | None = None,
 ) -> dict[str, str]:
     """Extract OAuth configuration from connector.rb using Ruby."""
     import shutil
@@ -226,17 +228,22 @@ def _extract_oauth_config(
     settings_code = ""
     if settings_path:
         abs_settings = _esc(str(Path(settings_path).resolve()))
-        p = Path(abs_settings)
+        p = Path(settings_path)
         if p.suffix in (".yaml", ".yml"):
             settings_code = f"""
 require 'yaml'
-settings = YAML.load_file('{abs_settings}')
+all_settings = YAML.load_file('{abs_settings}')
 """
         else:
             settings_code = f"""
 require 'json'
-settings = JSON.parse(File.read('{abs_settings}'))
+all_settings = JSON.parse(File.read('{abs_settings}'))
 """
+        if connection_name:
+            safe_name = _esc(connection_name)
+            settings_code += f"settings = all_settings['{safe_name}'] || all_settings\n"
+        else:
+            settings_code += "settings = all_settings\n"
     else:
         settings_code = "settings = {}\n"
 

@@ -563,6 +563,7 @@ async def oauth2(
     token_response = await run_oauth2_flow(
         connector_path=connector,
         settings_path=settings_resolved,
+        connection_name=connection_name,
         port=port,
         ip=ip,
         use_https=use_https,

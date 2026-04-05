@@ -91,9 +91,9 @@ def build_ruby_script(  # noqa: PLR0913
     webhook_payload_code = _load_json_file_code("webhook_payload", webhook_payload_path)
 
     # Webhook extras
-    wh_headers = f"'{webhook_headers}'" if webhook_headers else "nil"
-    wh_params = f"'{webhook_params}'" if webhook_params else "nil"
-    wh_url = f"'{webhook_url}'" if webhook_url else "nil"
+    wh_headers = f"'{_escape_ruby_str(webhook_headers)}'" if webhook_headers else "nil"
+    wh_params = f"'{_escape_ruby_str(webhook_params)}'" if webhook_params else "nil"
+    wh_url = f"'{_escape_ruby_str(webhook_url)}'" if webhook_url else "nil"
     from_val = str(from_byte) if from_byte is not None else "nil"
     frame_val = str(frame_size) if frame_size is not None else "nil"
 
