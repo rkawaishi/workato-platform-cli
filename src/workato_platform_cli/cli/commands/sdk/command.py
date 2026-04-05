@@ -11,7 +11,6 @@ from dependency_injector.wiring import Provide, inject
 from workato_platform_cli import Workato
 from workato_platform_cli.cli.commands.sdk.connector_pusher import push_connector
 from workato_platform_cli.cli.commands.sdk.scaffold import generate_scaffold
-from workato_platform_cli.cli.commands.sdk.sdk_runner import SdkRunner
 from workato_platform_cli.cli.containers import Container
 from workato_platform_cli.cli.utils import Spinner
 from workato_platform_cli.cli.utils.exception_handler import (
@@ -255,27 +254,25 @@ async def oauth2(
     port: int,
     ip: str,
 ) -> None:
-    """Run OAuth2 authorization flow (requires Ruby + workato-connector-sdk gem)"""
-    runner = SdkRunner()
+    """Run OAuth2 authorization flow (requires Ruby for connector parsing)"""
+    import json as json_mod
 
-    if not runner.check_ruby_installed():
-        raise click.ClickException("Ruby is not installed.")
-
-    if not runner.check_gem_installed():
-        raise click.ClickException(
-            "workato-connector-sdk gem is not installed.\n"
-            "  Run: gem install workato-connector-sdk"
-        )
-
-    args = ["oauth2", "-c", connector, "--port", str(port), "--ip", ip]
-    if settings:
-        args.extend(["-s", settings])
+    from workato_platform_cli.cli.commands.sdk.oauth2_flow import (
+        run_oauth2_flow,
+    )
 
     click.echo("🔐 Starting OAuth2 authorization flow...")
-    exit_code = runner.run_interactive(*args)
 
-    if exit_code != 0:
-        raise click.ClickException(f"OAuth2 flow failed with exit code {exit_code}")
+    token_response = await run_oauth2_flow(
+        connector_path=connector,
+        settings_path=settings,
+        port=port,
+        ip=ip,
+    )
+
+    click.echo("✅ OAuth2 flow completed")
+    click.echo()
+    click.echo(json_mod.dumps(token_response, indent=2))
 
 
 # --- sdk edit ---
