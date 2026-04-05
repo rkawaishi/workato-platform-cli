@@ -1854,5 +1854,11 @@ class ConnectionsApi:
         )
         response_data = await self.api_client.call_api(*_param, _request_timeout=_request_timeout)
         await response_data.read()
-
+        if response_data.status not in (200, 204):
+            from workato_platform_cli.client.workato_api.exceptions import ApiException
+            raise ApiException(
+                status=response_data.status,
+                reason=response_data.reason,
+                http_resp=response_data,
+            )
 

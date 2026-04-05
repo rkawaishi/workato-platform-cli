@@ -56,6 +56,17 @@ async def get_remote_assets(
                 }
             )
 
+    # Get connections
+    conn_response = await workato_api_client.connections_api.list_connections()
+    if conn_response and hasattr(conn_response, "items"):
+        for conn in conn_response.items or []:
+            assets.connections.append(
+                {
+                    "id": conn.id,
+                    "name": conn.name,
+                }
+            )
+
     # Get folders
     folder_response = await workato_api_client.folders_api.list_folders(
         parent_id=folder_id,
@@ -83,6 +94,10 @@ def find_assets_to_delete(
     for recipe in remote.recipes:
         if recipe["name"] not in local_asset_names:
             to_delete.recipes.append(recipe)
+
+    for conn in remote.connections:
+        if conn["name"] not in local_asset_names:
+            to_delete.connections.append(conn)
 
     for folder in remote.folders:
         if folder["name"] not in local_asset_names:

@@ -158,8 +158,17 @@ async def push(
             )
 
             # Collect local asset names from the zip
+            # Include file stems and directory names
             with zipfile.ZipFile(zip_path, "r") as zipf:
-                local_names = {Path(n).stem for n in zipf.namelist()}
+                local_names: set[str] = set()
+                for entry in zipf.namelist():
+                    p = Path(entry)
+                    # File stem (e.g., "recipe_name" from "recipe_name.json")
+                    if p.suffix:
+                        local_names.add(p.stem)
+                    # Directory names from path parts
+                    for part in p.parts[:-1]:
+                        local_names.add(part)
 
             remote = await get_remote_assets(workato_api_client, folder_id)
             to_delete = find_assets_to_delete(remote, local_names)
