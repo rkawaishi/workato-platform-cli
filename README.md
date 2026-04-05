@@ -12,6 +12,7 @@ A modern, type-safe command-line interface for the Workato API, designed for aut
 | **SDK commands** | `workato sdk new` / `push` / `generate schema` / `exec` / `oauth2` — workato-connector-sdk の機能を統合 | [PR #2](https://github.com/rkawaishi/workato-platform-cli/pull/2) |
 | **workspace_id によるプロファイル解決** | `.workatoenv` の `workspace_id` でプロファイルを自動選択。ファイルを Git でチーム共有可能に | [PR #3](https://github.com/rkawaishi/workato-platform-cli/pull/3) |
 | **Custom OAuth Profile 管理** | `workato oauth-profiles` (list/get/create/update/delete) — Custom OAuth Profile の CRUD 操作 | [PR #5](https://github.com/rkawaishi/workato-platform-cli/pull/5) |
+| **push --delete** | `workato push --delete` — ローカルに存在しないリモートアセットを削除同期 | [PR #6](https://github.com/rkawaishi/workato-platform-cli/pull/6) |
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Type Checked](https://img.shields.io/badge/type--checked-mypy-blue.svg)](https://mypy.readthedocs.io/)
