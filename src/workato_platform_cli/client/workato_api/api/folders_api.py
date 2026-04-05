@@ -623,7 +623,7 @@ class FoldersApi:
     async def delete_folder(
         self,
         folder_id: Annotated[StrictInt, Field(description="Folder ID")],
-        force: Annotated[Optional[StrictBool], Field(description="Force delete")] = True,
+        force: Annotated[Optional[StrictBool], Field(description="Force delete")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
