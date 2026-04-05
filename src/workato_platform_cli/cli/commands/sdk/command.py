@@ -25,6 +25,52 @@ def sdk() -> None:
     pass
 
 
+def _resolve_settings(
+    settings: str | None,
+    key_path: str,
+) -> str | None:
+    """Resolve settings file path, decrypting .enc files if needed.
+
+    If settings is None, auto-detects settings.yaml.enc or settings.yaml.
+    If settings ends with .enc, decrypts to a temp .yaml file.
+    """
+    import tempfile
+
+    from workato_platform_cli.cli.commands.sdk.encrypted_file import (
+        read_encrypted_file,
+    )
+
+    # Auto-detect settings file
+    if settings is None:
+        if Path("settings.yaml.enc").exists():
+            settings = "settings.yaml.enc"
+        elif Path("settings.yaml").exists():
+            settings = "settings.yaml"
+        else:
+            return None
+
+    # Decrypt .enc files to temp file
+    if settings.endswith(".enc"):
+        key_file = Path(key_path)
+        enc_file = Path(settings)
+        try:
+            content = read_encrypted_file(enc_file, key_file)
+        except FileNotFoundError as e:
+            raise click.ClickException(str(e)) from e
+
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".yaml",
+            delete=False,
+            encoding="utf-8",
+        ) as tmp:
+            tmp.write(content)
+        click.echo(f"🔓 Decrypted {settings}")
+        return tmp.name
+
+    return settings
+
+
 # --- sdk new ---
 
 
@@ -186,6 +232,9 @@ async def generate_schema(
 @click.argument("path")
 @click.option("--connector", "-c", default="connector.rb", help="Connector file path")
 @click.option("--settings", "-s", default=None, help="Settings file path")
+@click.option(
+    "--key", "-k", "key_path", default="master.key", help="Encryption key file"
+)
 @click.option("--input", "-i", "input_file", default=None, help="Input JSON file")
 @click.option("--output", "-o", "output_file", default=None, help="Output JSON file")
 @click.option("--verbose", is_flag=True, help="Show all requests/responses")
@@ -194,6 +243,7 @@ async def exec_connector(
     path: str,
     connector: str,
     settings: str | None,
+    key_path: str,
     input_file: str | None,
     output_file: str | None,
     verbose: bool,
@@ -215,9 +265,12 @@ async def exec_connector(
 
     click.echo(f"🔧 Executing: {path}")
 
+    # Resolve settings (decrypt .enc files)
+    settings_resolved = _resolve_settings(settings, key_path)
+
     # Resolve paths to absolute
     connector_abs = str(Path(connector).resolve())
-    settings_abs = str(Path(settings).resolve()) if settings else None
+    settings_abs = str(Path(settings_resolved).resolve()) if settings_resolved else None
     input_abs = str(Path(input_file).resolve()) if input_file else None
     output_abs = str(Path(output_file).resolve()) if output_file else None
 
@@ -245,12 +298,16 @@ async def exec_connector(
 @sdk.command(name="oauth2")
 @click.option("--connector", "-c", default="connector.rb", help="Connector file path")
 @click.option("--settings", "-s", default=None, help="Settings file path")
+@click.option(
+    "--key", "-k", "key_path", default="master.key", help="Encryption key file"
+)
 @click.option("--port", default=45555, type=int, help="Callback server port")
 @click.option("--ip", default="127.0.0.1", help="Callback server IP")
 @handle_cli_exceptions
 async def oauth2(
     connector: str,
     settings: str | None,
+    key_path: str,
     port: int,
     ip: str,
 ) -> None:
@@ -261,11 +318,13 @@ async def oauth2(
         run_oauth2_flow,
     )
 
+    settings_resolved = _resolve_settings(settings, key_path)
+
     click.echo("🔐 Starting OAuth2 authorization flow...")
 
     token_response = await run_oauth2_flow(
         connector_path=connector,
-        settings_path=settings,
+        settings_path=settings_resolved,
         port=port,
         ip=ip,
     )

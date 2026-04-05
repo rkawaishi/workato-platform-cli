@@ -224,6 +224,7 @@ async def test_exec_checks_ruby(
             path="actions.test.execute",
             connector="connector.rb",
             settings=None,
+            key_path="master.key",
             input_file=None,
             output_file=None,
             verbose=False,
