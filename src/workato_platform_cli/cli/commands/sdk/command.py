@@ -3,6 +3,7 @@
 import json
 
 from pathlib import Path
+from typing import Any
 
 import asyncclick as click
 
@@ -411,28 +412,30 @@ async def exec_connector(  # noqa: PLR0913
     def _resolve_opt(p: str | None) -> str | None:
         return str(Path(p).resolve()) if p else None
 
-    exit_code, stdout, stderr = execute_block(
-        connector_path=connector_abs,
-        block_path=path,
-        settings_path=settings_abs,
-        connection_name=connection_name,
-        input_path=input_abs,
-        output_path=output_abs,
-        closure_path=_resolve_opt(closure),
-        args_path=_resolve_opt(args_file),
-        extended_input_schema_path=_resolve_opt(extended_input_schema),
-        extended_output_schema_path=_resolve_opt(extended_output_schema),
-        config_fields_path=_resolve_opt(config_fields),
-        continue_path=_resolve_opt(continue_data),
-        from_byte=from_byte,
-        frame_size=frame_size,
-        webhook_headers=webhook_headers,
-        webhook_params=webhook_params,
-        webhook_payload_path=_resolve_opt(webhook_payload),
-        webhook_url=webhook_url,
-        verbose=verbose,
-        debug=debug,
-    )
+    exec_kwargs: dict[str, Any] = {
+        "connector_path": connector_abs,
+        "block_path": path,
+        "settings_path": settings_abs,
+        "connection_name": connection_name,
+        "input_path": input_abs,
+        "output_path": output_abs,
+        "closure_path": _resolve_opt(closure),
+        "args_path": _resolve_opt(args_file),
+        "extended_input_schema_path": _resolve_opt(extended_input_schema),
+        "extended_output_schema_path": _resolve_opt(extended_output_schema),
+        "config_fields_path": _resolve_opt(config_fields),
+        "continue_path": _resolve_opt(continue_data),
+        "from_byte": from_byte,
+        "frame_size": frame_size,
+        "webhook_headers": webhook_headers,
+        "webhook_params": webhook_params,
+        "webhook_payload_path": _resolve_opt(webhook_payload),
+        "webhook_url": webhook_url,
+        "verbose": verbose,
+        "debug": debug,
+    }
+
+    exit_code, stdout, stderr = execute_block(**exec_kwargs)
 
     # Check for auth errors and attempt token refresh
     needs_refresh = False
@@ -466,28 +469,8 @@ async def exec_connector(  # noqa: PLR0913
             )
 
             click.echo("🔧 Retrying with refreshed token...")
-            exit_code, stdout, stderr = execute_block(
-                connector_path=connector_abs,
-                block_path=path,
-                settings_path=settings_abs,
-                connection_name=connection_name,
-                input_path=input_abs,
-                output_path=output_abs,
-                closure_path=_resolve_opt(closure),
-                args_path=_resolve_opt(args_file),
-                extended_input_schema_path=_resolve_opt(extended_input_schema),
-                extended_output_schema_path=_resolve_opt(extended_output_schema),
-                config_fields_path=_resolve_opt(config_fields),
-                continue_path=_resolve_opt(continue_data),
-                from_byte=from_byte,
-                frame_size=frame_size,
-                webhook_headers=webhook_headers,
-                webhook_params=webhook_params,
-                webhook_payload_path=_resolve_opt(webhook_payload),
-                webhook_url=webhook_url,
-                verbose=verbose,
-                debug=debug,
-            )
+            exec_kwargs["settings_path"] = settings_abs
+            exit_code, stdout, stderr = execute_block(**exec_kwargs)
 
     if stdout.strip():
         click.echo(stdout)
@@ -523,7 +506,7 @@ def _try_token_refresh(
             if isinstance(result, dict) and "access_token" in result:
                 click.echo("✅ Token refreshed successfully")
                 return result
-        except (json.JSONDecodeError, ValueError):
+        except (json_mod.JSONDecodeError, ValueError):
             pass
 
     click.echo("⚠️  Token refresh failed. Please re-authenticate.")

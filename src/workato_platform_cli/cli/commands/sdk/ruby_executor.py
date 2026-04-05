@@ -15,10 +15,16 @@ def check_ruby_installed() -> bool:
     return shutil.which("ruby") is not None
 
 
+def _escape_ruby_path(path: str) -> str:
+    """Escape single quotes in file paths for Ruby string literals."""
+    return path.replace("'", "\\'")
+
+
 def _load_json_file_code(var_name: str, path: str | None) -> str:
     """Generate Ruby code to load a JSON file into a variable."""
     if path:
-        return f"{var_name} = JSON.parse(File.read('{path}'))\n"
+        safe = _escape_ruby_path(path)
+        return f"{var_name} = JSON.parse(File.read('{safe}'))\n"
     return f"{var_name} = {{}}\n"
 
 
@@ -34,11 +40,11 @@ def _load_settings_code(
     if p.suffix in (".yaml", ".yml"):
         code = textwrap.dedent(f"""\
             require 'yaml'
-            all_settings = YAML.load_file('{settings_path}')
+            all_settings = YAML.load_file('{_escape_ruby_path(settings_path)}')
         """)
     else:
         code = textwrap.dedent(f"""\
-            all_settings = JSON.parse(File.read('{settings_path}'))
+            all_settings = JSON.parse(File.read('{_escape_ruby_path(settings_path)}'))
         """)
 
     if connection_name:
@@ -101,7 +107,7 @@ def build_ruby_script(  # noqa: PLR0913
         require 'net/http'
         require 'uri'
 
-        connector = eval(File.read('{connector_path}'))
+        connector = eval(File.read('{_escape_ruby_path(connector_path)}'))
 
         {settings_code}
         {input_code}

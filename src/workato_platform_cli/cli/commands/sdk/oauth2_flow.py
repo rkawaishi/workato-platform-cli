@@ -146,6 +146,15 @@ async def run_oauth2_flow(
         ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ssl_ctx.load_cert_chain(cert_path, key_path)
 
+        # Clean up temp cert/key files at exit
+        import atexit
+
+        def _cleanup_certs(c: str = cert_path, k: str = key_path) -> None:
+            Path(c).unlink(missing_ok=True)
+            Path(k).unlink(missing_ok=True)
+
+        atexit.register(_cleanup_certs)
+
     site = web.TCPSite(runner, ip, port, ssl_context=ssl_ctx)
     await site.start()
 
