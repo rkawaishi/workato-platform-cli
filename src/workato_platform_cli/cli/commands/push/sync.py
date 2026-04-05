@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
+
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import asyncclick as click
 
@@ -10,100 +13,85 @@ from workato_platform_cli import Workato
 
 
 @dataclass
-class RemoteAssets:
-    """Remote asset inventory."""
+class RemoteAsset:
+    """A single remote asset."""
 
-    recipes: list[dict] = field(default_factory=list)
-    connections: list[dict] = field(default_factory=list)
-    folders: list[dict] = field(default_factory=list)
+    id: int
+    name: str
+    type: str
+    zip_name: str
 
 
 @dataclass
 class AssetsToDelete:
     """Assets that exist on remote but not locally."""
 
-    recipes: list[dict] = field(default_factory=list)
-    connections: list[dict] = field(default_factory=list)
-    folders: list[dict] = field(default_factory=list)
+    assets: list[RemoteAsset] = field(default_factory=list)
 
     @property
     def total(self) -> int:
-        return len(self.recipes) + len(self.connections) + len(self.folders)
+        return len(self.assets)
 
     @property
     def is_empty(self) -> bool:
         return self.total == 0
 
+    @property
+    def recipes(self) -> list[RemoteAsset]:
+        return [a for a in self.assets if a.type == "recipe"]
+
+    @property
+    def connections(self) -> list[RemoteAsset]:
+        return [a for a in self.assets if a.type == "connection"]
+
+    @property
+    def folders(self) -> list[RemoteAsset]:
+        return [a for a in self.assets if a.type not in ("recipe", "connection")]
+
 
 async def get_remote_assets(
     workato_api_client: Workato,
     folder_id: int,
-) -> RemoteAssets:
-    """Get all remote assets in the project folder."""
-    assets = RemoteAssets()
+) -> list[RemoteAsset]:
+    """Get all remote assets in the project folder using export API.
 
-    # Get recipes in the folder (with subfolders)
-    response = await workato_api_client.recipes_api.list_recipes(
+    Uses list_assets_in_folder which returns Asset objects with zip_name,
+    enabling accurate matching with local file names.
+    """
+    assets: list[RemoteAsset] = []
+
+    response = await workato_api_client.export_api.list_assets_in_folder(
         folder_id=folder_id,
     )
-    if response and response.items:
-        for recipe in response.items:
-            assets.recipes.append(
-                {
-                    "id": recipe.id,
-                    "name": recipe.name,
-                    "running": getattr(recipe, "running", False),
-                }
-            )
+    if response and response.result and response.result.assets:
+        for asset in response.result.assets:
+            # Strip extensions from zip_name for matching
+            zip_stem = asset.zip_name
+            while Path(zip_stem).suffix:
+                zip_stem = Path(zip_stem).stem
 
-    # Get connections scoped to this folder
-    connections = await workato_api_client.connections_api.list_connections(
-        folder_id=folder_id,
-    )
-    if connections:
-        for conn in connections:
-            assets.connections.append(
-                {
-                    "id": conn.id,
-                    "name": conn.name,
-                }
-            )
-
-    # Get folders
-    folder_response = await workato_api_client.folders_api.list_folders(
-        parent_id=folder_id,
-    )
-    if folder_response:
-        items = folder_response if isinstance(folder_response, list) else []
-        for f in items:
-            assets.folders.append(
-                {
-                    "id": f.id,
-                    "name": f.name,
-                }
+            assets.append(
+                RemoteAsset(
+                    id=asset.id,
+                    name=asset.name,
+                    type=asset.type,
+                    zip_name=zip_stem,
+                )
             )
 
     return assets
 
 
 def find_assets_to_delete(
-    remote: RemoteAssets,
+    remote_assets: list[RemoteAsset],
     local_asset_names: set[str],
 ) -> AssetsToDelete:
-    """Find remote assets not present locally."""
+    """Find remote assets not present locally by comparing zip_name."""
     to_delete = AssetsToDelete()
 
-    for recipe in remote.recipes:
-        if recipe["name"] not in local_asset_names:
-            to_delete.recipes.append(recipe)
-
-    for conn in remote.connections:
-        if conn["name"] not in local_asset_names:
-            to_delete.connections.append(conn)
-
-    for folder in remote.folders:
-        if folder["name"] not in local_asset_names:
-            to_delete.folders.append(folder)
+    for asset in remote_assets:
+        if asset.zip_name not in local_asset_names:
+            to_delete.assets.append(asset)
 
     return to_delete
 
@@ -113,21 +101,8 @@ def display_delete_plan(to_delete: AssetsToDelete) -> None:
     click.echo()
     click.echo(f"⚠️  {to_delete.total} remote asset(s) will be deleted:")
 
-    if to_delete.recipes:
-        click.echo("  Recipes:")
-        for r in to_delete.recipes:
-            running = " (running)" if r.get("running") else ""
-            click.echo(f"    - {r['name']} (ID: {r['id']}){running}")
-
-    if to_delete.connections:
-        click.echo("  Connections:")
-        for c in to_delete.connections:
-            click.echo(f"    - {c['name']} (ID: {c['id']})")
-
-    if to_delete.folders:
-        click.echo("  Folders:")
-        for f in to_delete.folders:
-            click.echo(f"    - {f['name']} (ID: {f['id']})")
+    for asset in to_delete.assets:
+        click.echo(f"    - [{asset.type}] {asset.name} (ID: {asset.id})")
 
     click.echo()
 
@@ -136,39 +111,42 @@ async def execute_delete(
     workato_api_client: Workato,
     to_delete: AssetsToDelete,
 ) -> None:
-    """Execute deletion of remote assets."""
-    # 1. Stop and delete recipes first
-    for recipe in to_delete.recipes:
+    """Execute deletion of remote assets.
+
+    Order: recipes first, then connections, then others (folders).
+    """
+    # 1. Delete recipes first
+    for asset in to_delete.recipes:
         try:
-            if recipe.get("running"):
+            # Stop recipe if running before deleting
+            with contextlib.suppress(Exception):
                 await workato_api_client.recipes_api.stop_recipe(
-                    recipe_id=recipe["id"],
+                    recipe_id=asset.id,
                 )
-                click.echo(f"  ⏹️  Stopped recipe: {recipe['name']}")
             await workato_api_client.recipes_api.delete_recipe(
-                recipe_id=recipe["id"],
+                recipe_id=asset.id,
             )
-            click.echo(f"  🗑️  Deleted recipe: {recipe['name']}")
+            click.echo(f"  🗑️  Deleted recipe: {asset.name}")
         except Exception as e:
-            click.echo(f"  ❌ Failed to delete recipe {recipe['name']}: {e}")
+            click.echo(f"  ❌ Failed to delete recipe {asset.name}: {e}")
 
     # 2. Delete connections
-    for conn in to_delete.connections:
+    for asset in to_delete.connections:
         try:
             await workato_api_client.connections_api.delete_connection(
-                connection_id=conn["id"],
+                connection_id=asset.id,
             )
-            click.echo(f"  🗑️  Deleted connection: {conn['name']}")
+            click.echo(f"  🗑️  Deleted connection: {asset.name}")
         except Exception as e:
-            click.echo(f"  ❌ Failed to delete connection {conn['name']}: {e}")
+            click.echo(f"  ❌ Failed to delete connection {asset.name}: {e}")
 
-    # 3. Delete folders last (after contents removed)
-    for folder in to_delete.folders:
+    # 3. Delete folders/others last
+    for asset in to_delete.folders:
         try:
             await workato_api_client.folders_api.delete_folder(
-                folder_id=folder["id"],
+                folder_id=asset.id,
                 force=True,
             )
-            click.echo(f"  🗑️  Deleted folder: {folder['name']}")
+            click.echo(f"  🗑️  Deleted {asset.type}: {asset.name}")
         except Exception as e:
-            click.echo(f"  ❌ Failed to delete folder {folder['name']}: {e}")
+            click.echo(f"  ❌ Failed to delete {asset.type} {asset.name}: {e}")
