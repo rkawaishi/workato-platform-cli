@@ -12,6 +12,35 @@ import asyncclick as click
 from workato_platform_cli import Workato
 
 
+# Known file extensions used by Workato project files
+_KNOWN_EXTENSIONS = {
+    ".json",
+    ".yaml",
+    ".yml",
+    ".rb",
+    ".recipe",
+    ".connection",
+    ".lookup_table",
+    ".account_property",
+    ".project_property",
+}
+
+
+def strip_known_extensions(name: str) -> str:
+    """Strip known Workato file extensions, preserving dots in asset names.
+
+    Example: "api.v2.recipe.json" → "api.v2"
+             "my_recipe.recipe.json" → "my_recipe"
+    """
+    while True:
+        p = Path(name)
+        if p.suffix and p.suffix in _KNOWN_EXTENSIONS:
+            name = p.stem
+        else:
+            break
+    return name
+
+
 @dataclass
 class RemoteAsset:
     """A single remote asset."""
@@ -73,9 +102,7 @@ async def get_remote_assets(
     )
     if response and response.result and response.result.assets:
         for asset in response.result.assets:
-            zip_stem = asset.zip_name
-            while Path(zip_stem).suffix:
-                zip_stem = Path(zip_stem).stem
+            zip_stem = strip_known_extensions(asset.zip_name)
 
             assets.append(
                 RemoteAsset(
