@@ -148,7 +148,8 @@ async def push(
 
         click.echo(f"✅ Package created: {zip_path} ({elapsed:.1f}s)")
 
-        # Delete sync: remove remote assets not present locally
+        # Delete sync: calculate diff before push, execute after
+        confirmed_delete = None
         if delete_remote:
             from workato_platform_cli.cli.commands.push.sync import (
                 display_delete_plan,
@@ -179,19 +180,23 @@ async def push(
             if not to_delete.is_empty:
                 display_delete_plan(to_delete)
                 if click.confirm("Continue with deletion?", default=False):
-                    await execute_delete(workato_api_client, to_delete)
-                    click.echo()
+                    confirmed_delete = to_delete
                 else:
                     click.echo("  Skipped deletion")
                     click.echo()
 
-        # Upload the package
+        # Upload the package first
         await upload_package(
             folder_id=folder_id,
             zip_path=zip_path,
             restart_recipes=restart_recipes,
             include_tags=include_tags,
         )
+
+        # Execute deletion after successful upload
+        if confirmed_delete is not None:
+            await execute_delete(workato_api_client, confirmed_delete)
+            click.echo()
     finally:
         # Clean up zip file
         if os.path.exists(zip_path):
