@@ -72,13 +72,22 @@ STATUS_INFO = {
 @click.option(
     "--include-tags", is_flag=True, default=True, help="Include tags in import"
 )
+@click.option(
+    "--delete",
+    "delete_remote",
+    is_flag=True,
+    default=False,
+    help="Delete remote assets that don't exist locally",
+)
 @handle_cli_exceptions
 @inject
 @handle_api_exceptions
 async def push(
     restart_recipes: bool = False,
     include_tags: bool = True,
+    delete_remote: bool = False,
     config_manager: ConfigManager = Provide[Container.config_manager],
+    workato_api_client: Workato = Provide[Container.workato_api_client],
 ) -> None:
     """Push local project changes to Workato"""
 
@@ -139,13 +148,57 @@ async def push(
 
         click.echo(f"✅ Package created: {zip_path} ({elapsed:.1f}s)")
 
-        # Upload the package
+        # Delete sync: calculate diff before push, execute after
+        confirmed_delete = None
+        if delete_remote:
+            from workato_platform_cli.cli.commands.push.sync import (
+                display_delete_plan,
+                execute_delete,
+                find_assets_to_delete,
+                get_remote_assets,
+                strip_known_extensions,
+            )
+
+            # Collect local asset names from the zip
+            # Include base names (strip known extensions) and directory names
+            with zipfile.ZipFile(zip_path, "r") as zipf:
+                local_names: set[str] = set()
+                for entry in zipf.namelist():
+                    p = Path(entry)
+                    name = strip_known_extensions(p.name)
+                    if name:
+                        local_names.add(name)
+                    # Directory names from path parts
+                    for part in p.parts[:-1]:
+                        local_names.add(part)
+
+            remote_assets, remote_folders = await get_remote_assets(
+                workato_api_client, folder_id
+            )
+            to_delete = find_assets_to_delete(
+                remote_assets, remote_folders, local_names
+            )
+
+            if not to_delete.is_empty:
+                display_delete_plan(to_delete)
+                if click.confirm("Continue with deletion?", default=False):
+                    confirmed_delete = to_delete
+                else:
+                    click.echo("  Skipped deletion")
+                    click.echo()
+
+        # Upload the package first
         await upload_package(
             folder_id=folder_id,
             zip_path=zip_path,
             restart_recipes=restart_recipes,
             include_tags=include_tags,
         )
+
+        # Execute deletion after successful upload
+        if confirmed_delete is not None:
+            await execute_delete(workato_api_client, confirmed_delete)
+            click.echo()
     finally:
         # Clean up zip file
         if os.path.exists(zip_path):
