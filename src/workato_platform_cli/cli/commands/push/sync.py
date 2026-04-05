@@ -56,10 +56,12 @@ async def get_remote_assets(
                 }
             )
 
-    # Get connections
-    conn_response = await workato_api_client.connections_api.list_connections()
-    if conn_response and hasattr(conn_response, "items"):
-        for conn in conn_response.items or []:
+    # Get connections scoped to this folder
+    connections = await workato_api_client.connections_api.list_connections(
+        folder_id=folder_id,
+    )
+    if connections:
+        for conn in connections:
             assets.connections.append(
                 {
                     "id": conn.id,
