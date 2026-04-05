@@ -14,7 +14,7 @@ def test_build_ruby_script_basic() -> None:
     )
 
     assert "connector.rb" in script
-    assert "[:actions][:search][:execute]" in script
+    assert "connector.dig(:actions, :search, :execute)" in script
     assert "settings = {}" in script
 
 
@@ -57,7 +57,7 @@ def test_build_ruby_script_methods() -> None:
         block_path="methods.my_helper",
     )
 
-    assert "[:methods][:my_helper]" in script
+    assert "connector.dig(:methods, :my_helper)" in script
 
 
 def test_build_ruby_script_with_connection_name() -> None:
@@ -88,7 +88,7 @@ def test_build_ruby_script_pick_lists() -> None:
         block_path="pick_lists.deal_types",
     )
 
-    assert "[:pick_lists][:deal_types]" in script
+    assert "connector.dig(:pick_lists, :deal_types)" in script
 
 
 def test_build_ruby_script_object_definitions() -> None:
@@ -97,7 +97,7 @@ def test_build_ruby_script_object_definitions() -> None:
         block_path="object_definitions.deal",
     )
 
-    assert "[:object_definitions][:deal]" in script
+    assert "connector.dig(:object_definitions, :deal)" in script
 
 
 def test_build_ruby_script_has_auth_apply() -> None:

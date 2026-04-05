@@ -58,6 +58,8 @@ def _resolve_settings(
         except FileNotFoundError as e:
             raise click.ClickException(str(e)) from e
 
+        import atexit
+
         with tempfile.NamedTemporaryFile(
             mode="w",
             suffix=".yaml",
@@ -65,6 +67,11 @@ def _resolve_settings(
             encoding="utf-8",
         ) as tmp:
             tmp.write(content)
+
+        tmp_path_to_clean = tmp.name
+        atexit.register(
+            lambda p=tmp_path_to_clean: Path(p).unlink(missing_ok=True)  # type: ignore[misc]
+        )
         click.echo(f"🔓 Decrypted {settings}")
         return tmp.name
 
@@ -75,11 +82,13 @@ def _save_tokens_to_settings(
     settings: str | None,
     key_path: str,
     token_response: dict[str, str],
+    connection_name: str | None = None,
 ) -> None:
     """Merge token response into settings file.
 
     Following workato-connector-sdk convention, tokens (access_token,
     refresh_token, etc.) are stored directly in settings.yaml.
+    If connection_name is provided, tokens are saved under that key.
     """
     import yaml
 
@@ -100,13 +109,22 @@ def _save_tokens_to_settings(
     key_file = Path(key_path)
 
     # Load existing settings
-    existing: dict[str, str] = {}
+    existing: dict = {}
     if target_path.exists():
         if target.endswith(".enc"):
             content = read_encrypted_file(target_path, key_file)
             existing = yaml.safe_load(content) or {}
         else:
             existing = yaml.safe_load(target_path.read_text()) or {}
+
+    # Determine where to merge tokens
+    if connection_name and connection_name in existing:
+        merge_target = existing[connection_name]
+    elif connection_name:
+        existing[connection_name] = {}
+        merge_target = existing[connection_name]
+    else:
+        merge_target = existing
 
     # Merge token response
     for key in (
@@ -117,7 +135,7 @@ def _save_tokens_to_settings(
         "scope",
     ):
         if key in token_response:
-            existing[key] = token_response[key]
+            merge_target[key] = token_response[key]
 
     # Save
     new_content = yaml.dump(existing, default_flow_style=False)
@@ -439,7 +457,7 @@ async def exec_connector(  # noqa: PLR0913
         refreshed = _try_token_refresh(connector_abs, settings_abs, connection_name)
         if refreshed:
             # Update settings file with new tokens
-            _save_tokens_to_settings(settings, key_path, refreshed)
+            _save_tokens_to_settings(settings, key_path, refreshed, connection_name)
 
             # Re-resolve settings and retry
             settings_resolved = _resolve_settings(settings, key_path)
@@ -573,7 +591,7 @@ async def oauth2(
     click.echo(json_mod.dumps(token_response, indent=2))
 
     # Save tokens to settings file
-    _save_tokens_to_settings(settings, key_path, token_response)
+    _save_tokens_to_settings(settings, key_path, token_response, connection_name)
 
 
 # --- sdk edit ---

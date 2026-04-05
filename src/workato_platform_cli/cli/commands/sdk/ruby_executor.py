@@ -90,11 +90,10 @@ def build_ruby_script(  # noqa: PLR0913
     from_val = str(from_byte) if from_byte is not None else "nil"
     frame_val = str(frame_size) if frame_size is not None else "nil"
 
-    # Navigate the connector hash
+    # Navigate the connector hash using dig for safe access
     parts = block_path.split(".")
-    navigation = "connector"
-    for part in parts:
-        navigation += f"[:{part}]"
+    dig_args = ", ".join(f":{p}" for p in parts)
+    navigation = f"connector.dig({dig_args})"
 
     return textwrap.dedent(f"""\
         require 'json'
