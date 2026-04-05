@@ -329,7 +329,9 @@ async def edit_encrypted(path: str, key_path: str) -> None:
 
     # Write decrypted content to temp file, open in editor
     suffix = ".yaml" if "yaml" in path else ".txt"
-    with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=suffix, delete=False, encoding="utf-8"
+    ) as tmp:
         tmp.write(content)
         tmp_path = tmp.name
 
@@ -341,7 +343,7 @@ async def edit_encrypted(path: str, key_path: str) -> None:
             raise click.ClickException(f"Editor exited with code {result.returncode}")
 
         # Read edited content
-        edited = Path(tmp_path).read_text()
+        edited = Path(tmp_path).read_text(encoding="utf-8")
 
         if edited == content:
             click.echo("ℹ️  No changes made")
