@@ -1,7 +1,12 @@
-"""Encrypted file support compatible with ActiveSupport::EncryptedFile.
+"""Encrypted file support using aes-128-gcm.
 
-Uses aes-128-gcm cipher with hex-encoded 16-byte keys, matching the format
-used by the workato-connector-sdk Ruby gem for settings.yaml.enc files.
+Uses aes-128-gcm cipher with hex-encoded 16-byte keys for encrypting
+connector settings files (e.g., settings.yaml.enc).
+
+Note: This implementation encrypts/decrypts raw text without Ruby Marshal
+serialization. Files created by this module are readable only by this module,
+not by the Ruby workato-connector-sdk gem (which uses ActiveSupport's
+MessageEncryptor with Marshal serialization).
 
 Format: base64(ciphertext)--base64(iv)--base64(auth_tag)
 """
