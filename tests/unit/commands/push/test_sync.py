@@ -52,7 +52,7 @@ def test_find_assets_to_delete_mixed_types() -> None:
     result = find_assets_to_delete(remote, local_names)
 
     assert len(result.connections) == 1
-    assert len(result.folders) == 1
+    assert len(result.others) == 1
     assert result.total == 2
 
 
@@ -68,7 +68,7 @@ def test_assets_to_delete_properties() -> None:
     assert not to_delete.is_empty
     assert len(to_delete.recipes) == 1
     assert len(to_delete.connections) == 1
-    assert len(to_delete.folders) == 1
+    assert len(to_delete.others) == 1
 
 
 def test_assets_to_delete_empty() -> None:

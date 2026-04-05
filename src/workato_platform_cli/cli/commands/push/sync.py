@@ -45,7 +45,8 @@ class AssetsToDelete:
         return [a for a in self.assets if a.type == "connection"]
 
     @property
-    def folders(self) -> list[RemoteAsset]:
+    def others(self) -> list[RemoteAsset]:
+        """Non-recipe, non-connection assets (not deletable via individual API)."""
         return [a for a in self.assets if a.type not in ("recipe", "connection")]
 
 
@@ -140,13 +141,8 @@ async def execute_delete(
         except Exception as e:
             click.echo(f"  ❌ Failed to delete connection {asset.name}: {e}")
 
-    # 3. Delete folders/others last
-    for asset in to_delete.folders:
-        try:
-            await workato_api_client.folders_api.delete_folder(
-                folder_id=asset.id,
-                force=True,
-            )
-            click.echo(f"  🗑️  Deleted {asset.type}: {asset.name}")
-        except Exception as e:
-            click.echo(f"  ❌ Failed to delete {asset.type} {asset.name}: {e}")
+    # 3. Log skipped assets (not deletable via individual API)
+    for asset in to_delete.others:
+        click.echo(
+            f"  ⏭️  Skipped {asset.type}: {asset.name} (manual deletion required)"
+        )
