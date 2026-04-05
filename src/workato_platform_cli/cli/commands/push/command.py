@@ -158,14 +158,17 @@ async def push(
             )
 
             # Collect local asset names from the zip
-            # Include file stems and directory names
+            # Include base names (strip all extensions) and directory names
             with zipfile.ZipFile(zip_path, "r") as zipf:
                 local_names: set[str] = set()
                 for entry in zipf.namelist():
                     p = Path(entry)
-                    # File stem (e.g., "recipe_name" from "recipe_name.json")
-                    if p.suffix:
-                        local_names.add(p.stem)
+                    # Strip all extensions (e.g., "name.recipe.json" → "name")
+                    name = p.name
+                    while Path(name).suffix:
+                        name = Path(name).stem
+                    if name:
+                        local_names.add(name)
                     # Directory names from path parts
                     for part in p.parts[:-1]:
                         local_names.add(part)
