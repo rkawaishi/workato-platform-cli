@@ -72,13 +72,22 @@ STATUS_INFO = {
 @click.option(
     "--include-tags", is_flag=True, default=True, help="Include tags in import"
 )
+@click.option(
+    "--delete",
+    "delete_remote",
+    is_flag=True,
+    default=False,
+    help="Delete remote assets that don't exist locally",
+)
 @handle_cli_exceptions
 @inject
 @handle_api_exceptions
 async def push(
     restart_recipes: bool = False,
     include_tags: bool = True,
+    delete_remote: bool = False,
     config_manager: ConfigManager = Provide[Container.config_manager],
+    workato_api_client: Workato = Provide[Container.workato_api_client],
 ) -> None:
     """Push local project changes to Workato"""
 
@@ -138,6 +147,31 @@ async def push(
             elapsed = spinner.stop()
 
         click.echo(f"✅ Package created: {zip_path} ({elapsed:.1f}s)")
+
+        # Delete sync: remove remote assets not present locally
+        if delete_remote:
+            from workato_platform_cli.cli.commands.push.sync import (
+                display_delete_plan,
+                execute_delete,
+                find_assets_to_delete,
+                get_remote_assets,
+            )
+
+            # Collect local asset names from the zip
+            with zipfile.ZipFile(zip_path, "r") as zipf:
+                local_names = {Path(n).stem for n in zipf.namelist()}
+
+            remote = await get_remote_assets(workato_api_client, folder_id)
+            to_delete = find_assets_to_delete(remote, local_names)
+
+            if not to_delete.is_empty:
+                display_delete_plan(to_delete)
+                if click.confirm("Continue with deletion?", default=False):
+                    await execute_delete(workato_api_client, to_delete)
+                    click.echo()
+                else:
+                    click.echo("  Skipped deletion")
+                    click.echo()
 
         # Upload the package
         await upload_package(

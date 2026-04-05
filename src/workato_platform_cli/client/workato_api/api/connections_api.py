@@ -1805,3 +1805,54 @@ class ConnectionsApi:
         )
 
 
+    @validate_call
+    async def delete_connection(
+        self,
+        connection_id: Annotated[StrictInt, Field(description="Connection ID")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> None:
+        """Delete a connection
+
+        :param connection_id: Connection ID (required)
+        """ # noqa: E501
+
+        _host = None
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+
+        if connection_id is not None:
+            _path_params['connection_id'] = connection_id
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(['application/json'])
+        _auth_settings: List[str] = ['BearerAuth']
+
+        _param = self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/connections/{connection_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=None,
+            post_params=[],
+            files={},
+            auth_settings=_auth_settings,
+            collection_formats={},
+            _host=_host,
+            _request_auth=_request_auth
+        )
+        response_data = await self.api_client.call_api(*_param, _request_timeout=_request_timeout)
+        await response_data.read()
+
+

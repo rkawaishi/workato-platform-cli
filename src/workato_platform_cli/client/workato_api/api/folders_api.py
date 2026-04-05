@@ -12,7 +12,7 @@
 """  # noqa: E501
 
 import warnings
-from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
+from pydantic import validate_call, Field, StrictBool, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
@@ -617,5 +617,48 @@ class FoldersApi:
             _host=_host,
             _request_auth=_request_auth
         )
+
+
+    @validate_call
+    async def delete_folder(
+        self,
+        folder_id: Annotated[StrictInt, Field(description="Folder ID")],
+        force: Annotated[Optional[StrictBool], Field(description="Force delete")] = True,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> None:
+        """Delete a folder
+
+        :param folder_id: Folder ID (required)
+        :param force: Force delete non-empty folder (default True)
+        """ # noqa: E501
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+
+        if folder_id is not None:
+            _path_params['folder_id'] = folder_id
+        if force is not None:
+            _query_params.append(('force', force))
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(['application/json'])
+
+        _param = self.api_client.param_serialize(
+            method='DELETE', resource_path='/api/folders/{folder_id}',
+            path_params=_path_params, query_params=_query_params,
+            header_params=_header_params, body=None, post_params=[], files={},
+            auth_settings=['BearerAuth'], collection_formats={},
+            _host=None, _request_auth=_request_auth
+        )
+        response_data = await self.api_client.call_api(*_param, _request_timeout=_request_timeout)
+        await response_data.read()
 
 
