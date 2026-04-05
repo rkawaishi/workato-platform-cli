@@ -65,6 +65,60 @@ def build_ruby_script(
     return textwrap.dedent(f"""\
         require 'json'
         require 'yaml' if defined?(YAML)
+        require 'net/http'
+        require 'uri'
+
+        # Stub HTTP methods (get/post/put/patch/delete) for connector blocks
+        def get(url, headers = {{}})
+          uri = URI.parse(url)
+          req = Net::HTTP::Get.new(uri)
+          headers.each {{ |k, v| req[k] = v }}
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
+
+        def post(url, body = nil, headers = {{}})
+          uri = URI.parse(url)
+          req = Net::HTTP::Post.new(uri)
+          headers.each {{ |k, v| req[k] = v }}
+          req.body = body.is_a?(Hash) ? body.to_json : body.to_s if body
+          req['Content-Type'] ||= 'application/json'
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
+
+        def put(url, body = nil, headers = {{}})
+          uri = URI.parse(url)
+          req = Net::HTTP::Put.new(uri)
+          headers.each {{ |k, v| req[k] = v }}
+          req.body = body.is_a?(Hash) ? body.to_json : body.to_s if body
+          req['Content-Type'] ||= 'application/json'
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
+
+        def patch(url, body = nil, headers = {{}})
+          uri = URI.parse(url)
+          req = Net::HTTP::Patch.new(uri)
+          headers.each {{ |k, v| req[k] = v }}
+          req.body = body.is_a?(Hash) ? body.to_json : body.to_s if body
+          req['Content-Type'] ||= 'application/json'
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
+
+        def delete(url, headers = {{}})
+          uri = URI.parse(url)
+          req = Net::HTTP::Delete.new(uri)
+          headers.each {{ |k, v| req[k] = v }}
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
 
         connector = eval(File.read('{connector_path}'))
 
