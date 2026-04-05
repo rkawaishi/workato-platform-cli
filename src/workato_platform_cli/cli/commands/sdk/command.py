@@ -307,8 +307,11 @@ async def edit_encrypted(path: str, key_path: str) -> None:
     # Generate key if it doesn't exist
     if not key_file.exists():
         new_key = generate_key()
-        key_file.write_text(new_key)
-        key_file.chmod(0o600)
+        fd = os.open(str(key_file), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            os.write(fd, new_key.encode())
+        finally:
+            os.close(fd)
         click.echo(f"🔑 Generated new key: {key_file}")
         click.echo(
             "  ⚠️  Save this key securely. "
