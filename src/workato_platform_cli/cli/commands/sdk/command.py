@@ -416,6 +416,61 @@ async def exec_connector(  # noqa: PLR0913
         debug=debug,
     )
 
+    # Check for auth errors and attempt token refresh
+    needs_refresh = False
+    if stdout.strip():
+        try:
+            import json as json_mod
+
+            resp = json_mod.loads(stdout)
+            if isinstance(resp, dict):
+                code = resp.get("code", "")
+                status = resp.get("status", "")
+                if any(
+                    k in str(code).lower() + str(status).lower()
+                    for k in ("expired", "unauthorized", "401", "403")
+                ):
+                    needs_refresh = True
+        except (json_mod.JSONDecodeError, ValueError):
+            pass
+
+    if needs_refresh and settings_abs:
+        click.echo("🔄 Token expired. Attempting refresh...")
+        refreshed = _try_token_refresh(connector_abs, settings_abs, connection_name)
+        if refreshed:
+            # Update settings file with new tokens
+            _save_tokens_to_settings(settings, key_path, refreshed)
+
+            # Re-resolve settings and retry
+            settings_resolved = _resolve_settings(settings, key_path)
+            settings_abs = (
+                str(Path(settings_resolved).resolve()) if settings_resolved else None
+            )
+
+            click.echo("🔧 Retrying with refreshed token...")
+            exit_code, stdout, stderr = execute_block(
+                connector_path=connector_abs,
+                block_path=path,
+                settings_path=settings_abs,
+                connection_name=connection_name,
+                input_path=input_abs,
+                output_path=output_abs,
+                closure_path=_resolve_opt(closure),
+                args_path=_resolve_opt(args_file),
+                extended_input_schema_path=_resolve_opt(extended_input_schema),
+                extended_output_schema_path=_resolve_opt(extended_output_schema),
+                config_fields_path=_resolve_opt(config_fields),
+                continue_path=_resolve_opt(continue_data),
+                from_byte=from_byte,
+                frame_size=frame_size,
+                webhook_headers=webhook_headers,
+                webhook_params=webhook_params,
+                webhook_payload_path=_resolve_opt(webhook_payload),
+                webhook_url=webhook_url,
+                verbose=verbose,
+                debug=debug,
+            )
+
     if stdout.strip():
         click.echo(stdout)
     if stderr.strip():
@@ -423,6 +478,38 @@ async def exec_connector(  # noqa: PLR0913
 
     if exit_code != 0:
         raise click.ClickException(f"Execution failed with exit code {exit_code}")
+
+
+def _try_token_refresh(
+    connector_path: str,
+    settings_path: str,
+    connection_name: str | None,
+) -> dict[str, str] | None:
+    """Try to refresh the OAuth2 token using the connector's refresh lambda."""
+    from workato_platform_cli.cli.commands.sdk.ruby_executor import (
+        execute_block,
+    )
+
+    exit_code, stdout, stderr = execute_block(
+        connector_path=connector_path,
+        block_path="connection.authorization.refresh",
+        settings_path=settings_path,
+        connection_name=connection_name,
+    )
+
+    if exit_code == 0 and stdout.strip():
+        try:
+            import json as json_mod
+
+            result = json_mod.loads(stdout)
+            if isinstance(result, dict) and "access_token" in result:
+                click.echo("✅ Token refreshed successfully")
+                return result
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    click.echo("⚠️  Token refresh failed. Please re-authenticate.")
+    return None
 
 
 # --- sdk oauth2 ---
@@ -434,15 +521,32 @@ async def exec_connector(  # noqa: PLR0913
 @click.option(
     "--key", "-k", "key_path", default="master.key", help="Encryption key file"
 )
+@click.option(
+    "--connection",
+    "-n",
+    "connection_name",
+    default=None,
+    help="Connection name (for multiple credential sets)",
+)
 @click.option("--port", default=45555, type=int, help="Callback server port")
 @click.option("--ip", default="127.0.0.1", help="Callback server IP")
+@click.option(
+    "--https/--no-https",
+    "use_https",
+    default=False,
+    help="Use HTTPS with self-signed certificate",
+)
+@click.option("--verbose", is_flag=True, help="Show HTTP requests/responses")
 @handle_cli_exceptions
 async def oauth2(
     connector: str,
     settings: str | None,
     key_path: str,
+    connection_name: str | None,
     port: int,
     ip: str,
+    use_https: bool,
+    verbose: bool,
 ) -> None:
     """Run OAuth2 authorization flow (requires Ruby for connector parsing)"""
     import json as json_mod
@@ -460,6 +564,8 @@ async def oauth2(
         settings_path=settings_resolved,
         port=port,
         ip=ip,
+        use_https=use_https,
+        verbose=verbose,
     )
 
     click.echo("✅ OAuth2 flow completed")

@@ -18,6 +18,8 @@ async def run_oauth2_flow(
     settings_path: str | None = None,
     port: int = 45555,
     ip: str = "127.0.0.1",
+    use_https: bool = False,
+    verbose: bool = False,
 ) -> dict[str, str]:
     """Run OAuth2 authorization code flow.
 
@@ -44,7 +46,8 @@ async def run_oauth2_flow(
             "with authorization_url defined."
         )
 
-    redirect_uri = f"http://{ip}:{port}/callback"
+    scheme = "https" if use_https else "http"
+    redirect_uri = f"{scheme}://{ip}:{port}/callback"
 
     # Build authorization URL
     params: dict[str, str] = {
@@ -94,10 +97,59 @@ async def run_oauth2_flow(
     app.router.add_get("/callback", handle_callback)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, ip, port)
+
+    ssl_ctx = None
+    if use_https:
+        import datetime
+        import ssl
+        import tempfile
+
+        from cryptography import x509
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.x509.oid import NameOID
+
+        # Generate self-signed certificate
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        subject = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COMMON_NAME, ip),
+            ]
+        )
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(subject)
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(datetime.datetime.now(datetime.UTC))
+            .not_valid_after(
+                datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=1)
+            )
+            .sign(key, hashes.SHA256())
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as cert_file:
+            cert_file.write(cert.public_bytes(serialization.Encoding.PEM))
+            cert_path = cert_file.name
+
+        with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as key_file:
+            key_file.write(
+                key.private_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PrivateFormat.PKCS8,
+                    serialization.NoEncryption(),
+                )
+            )
+            key_path = key_file.name
+
+        ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_ctx.load_cert_chain(cert_path, key_path)
+
+    site = web.TCPSite(runner, ip, port, ssl_context=ssl_ctx)
     await site.start()
 
-    click.echo(f"🌐 Listening on http://{ip}:{port}/callback")
+    click.echo(f"🌐 Listening on {scheme}://{ip}:{port}/callback")
     click.echo(f"🔗 Opening browser: {auth_url[:80]}...")
     webbrowser.open(auth_url)
 
@@ -115,6 +167,9 @@ async def run_oauth2_flow(
     if "code" not in result:
         raise click.ClickException("No authorization code received")
 
+    if verbose:
+        click.echo(f"  📤 Authorization code: {result['code'][:20]}...")
+
     # Exchange code for token
     if token_url:
         import aiohttp
@@ -129,6 +184,10 @@ async def run_oauth2_flow(
                 token_data["client_id"] = client_id
             if client_secret:
                 token_data["client_secret"] = client_secret
+
+            if verbose:
+                click.echo(f"  📤 POST {token_url}")
+                click.echo(f"     Body: {token_data}")
 
             async with session.post(token_url, data=token_data) as resp:
                 token_response: dict[str, str] = await resp.json()
