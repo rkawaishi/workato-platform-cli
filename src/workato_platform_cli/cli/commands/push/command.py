@@ -174,8 +174,12 @@ async def push(
                     for part in p.parts[:-1]:
                         local_names.add(part)
 
-            remote = await get_remote_assets(workato_api_client, folder_id)
-            to_delete = find_assets_to_delete(remote, local_names)
+            remote_assets, remote_folders = await get_remote_assets(
+                workato_api_client, folder_id
+            )
+            to_delete = find_assets_to_delete(
+                remote_assets, remote_folders, local_names
+            )
 
             if not to_delete.is_empty:
                 display_delete_plan(to_delete)
