@@ -218,11 +218,14 @@ def _extract_oauth_config(
     if ruby_path is None:
         raise click.ClickException("Ruby is not installed")
 
-    abs_connector = str(Path(connector_path).resolve())
+    def _esc(s: str) -> str:
+        return s.replace("\\", "\\\\").replace("'", "\\'")
+
+    abs_connector = _esc(str(Path(connector_path).resolve()))
 
     settings_code = ""
     if settings_path:
-        abs_settings = str(Path(settings_path).resolve())
+        abs_settings = _esc(str(Path(settings_path).resolve()))
         p = Path(abs_settings)
         if p.suffix in (".yaml", ".yml"):
             settings_code = f"""

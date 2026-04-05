@@ -15,15 +15,15 @@ def check_ruby_installed() -> bool:
     return shutil.which("ruby") is not None
 
 
-def _escape_ruby_path(path: str) -> str:
-    """Escape single quotes in file paths for Ruby string literals."""
-    return path.replace("'", "\\'")
+def _escape_ruby_str(value: str) -> str:
+    """Escape for Ruby single-quoted string literals."""
+    return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
 def _load_json_file_code(var_name: str, path: str | None) -> str:
     """Generate Ruby code to load a JSON file into a variable."""
     if path:
-        safe = _escape_ruby_path(path)
+        safe = _escape_ruby_str(path)
         return f"{var_name} = JSON.parse(File.read('{safe}'))\n"
     return f"{var_name} = {{}}\n"
 
@@ -40,15 +40,16 @@ def _load_settings_code(
     if p.suffix in (".yaml", ".yml"):
         code = textwrap.dedent(f"""\
             require 'yaml'
-            all_settings = YAML.load_file('{_escape_ruby_path(settings_path)}')
+            all_settings = YAML.load_file('{_escape_ruby_str(settings_path)}')
         """)
     else:
         code = textwrap.dedent(f"""\
-            all_settings = JSON.parse(File.read('{_escape_ruby_path(settings_path)}'))
+            all_settings = JSON.parse(File.read('{_escape_ruby_str(settings_path)}'))
         """)
 
     if connection_name:
-        code += f"settings = all_settings['{connection_name}'] || all_settings\n"
+        safe_name = _escape_ruby_str(connection_name)
+        code += f"settings = all_settings['{safe_name}'] || all_settings\n"
     else:
         code += "settings = all_settings\n"
 
@@ -107,7 +108,7 @@ def build_ruby_script(  # noqa: PLR0913
         require 'net/http'
         require 'uri'
 
-        connector = eval(File.read('{_escape_ruby_path(connector_path)}'))
+        connector = eval(File.read('{_escape_ruby_str(connector_path)}'))
 
         {settings_code}
         {input_code}
