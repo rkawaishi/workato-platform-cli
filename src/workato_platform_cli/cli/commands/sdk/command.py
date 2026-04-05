@@ -325,7 +325,7 @@ async def edit_encrypted(path: str, key_path: str) -> None:
         content = "# Add your connector credentials here\n"
 
     # Determine editor
-    editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "vi"))
+    editor = os.environ.get("VISUAL", os.environ.get("EDITOR", "vi"))
 
     # Write decrypted content to temp file, open in editor
     suffix = ".yaml" if "yaml" in path else ".txt"
