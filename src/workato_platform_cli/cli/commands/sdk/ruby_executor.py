@@ -73,6 +73,28 @@ def build_ruby_script(
         {settings_code}
         {input_code}
 
+        # Capture auth headers from apply lambda
+        $auth_headers = {{}}
+
+        def headers(h = {{}})
+          $auth_headers.merge!(
+            h.transform_keys(&:to_s)
+          )
+        end
+
+        apply_block = connector.dig(
+          :connection, :authorization, :apply
+        )
+        if apply_block.is_a?(Proc)
+          token = settings['access_token'] || ''
+          case apply_block.arity.abs
+          when 1
+            apply_block.call(settings)
+          when 2
+            apply_block.call(settings, token)
+          end
+        end
+
         # Resolve base_uri from connector
         $base_uri = ''
         bu = connector.dig(:connection, :base_uri)
@@ -90,13 +112,18 @@ def build_ruby_script(
           end
         end
 
+        def apply_auth(req)
+          $auth_headers.each {{ |k, v| req[k] = v.to_s }}
+          req
+        end
+
         def get(path, params = {{}})
           url = resolve_url(path)
           uri = URI.parse(url)
           if params.is_a?(Hash) && !params.empty?
             uri.query = URI.encode_www_form(params)
           end
-          req = Net::HTTP::Get.new(uri)
+          req = apply_auth(Net::HTTP::Get.new(uri))
           res = Net::HTTP.start(uri.hostname, uri.port,
             use_ssl: uri.scheme == 'https') {{ |http|
             http.request(req) }}
@@ -106,7 +133,7 @@ def build_ruby_script(
         def post(path, body = nil, headers = {{}})
           url = resolve_url(path)
           uri = URI.parse(url)
-          req = Net::HTTP::Post.new(uri)
+          req = apply_auth(Net::HTTP::Post.new(uri))
           headers.each {{ |k, v| req[k.to_s] = v.to_s }}
           if body.is_a?(Hash)
             req.body = body.to_json
@@ -123,7 +150,7 @@ def build_ruby_script(
         def put(path, body = nil, headers = {{}})
           url = resolve_url(path)
           uri = URI.parse(url)
-          req = Net::HTTP::Put.new(uri)
+          req = apply_auth(Net::HTTP::Put.new(uri))
           headers.each {{ |k, v| req[k.to_s] = v.to_s }}
           if body.is_a?(Hash)
             req.body = body.to_json
@@ -140,7 +167,7 @@ def build_ruby_script(
         def patch(path, body = nil, headers = {{}})
           url = resolve_url(path)
           uri = URI.parse(url)
-          req = Net::HTTP::Patch.new(uri)
+          req = apply_auth(Net::HTTP::Patch.new(uri))
           headers.each {{ |k, v| req[k.to_s] = v.to_s }}
           if body.is_a?(Hash)
             req.body = body.to_json
@@ -157,7 +184,7 @@ def build_ruby_script(
         def delete(path, headers = {{}})
           url = resolve_url(path)
           uri = URI.parse(url)
-          req = Net::HTTP::Delete.new(uri)
+          req = apply_auth(Net::HTTP::Delete.new(uri))
           headers.each {{ |k, v| req[k.to_s] = v.to_s }}
           res = Net::HTTP.start(uri.hostname, uri.port,
             use_ssl: uri.scheme == 'https') {{ |http|

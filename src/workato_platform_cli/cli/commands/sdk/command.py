@@ -71,6 +71,64 @@ def _resolve_settings(
     return settings
 
 
+def _save_tokens_to_settings(
+    settings: str | None,
+    key_path: str,
+    token_response: dict[str, str],
+) -> None:
+    """Merge token response into settings file.
+
+    Following workato-connector-sdk convention, tokens (access_token,
+    refresh_token, etc.) are stored directly in settings.yaml.
+    """
+    import yaml
+
+    from workato_platform_cli.cli.commands.sdk.encrypted_file import (
+        read_encrypted_file,
+        write_encrypted_file,
+    )
+
+    # Determine target settings file
+    target = settings
+    if target is None:
+        if Path("settings.yaml.enc").exists():
+            target = "settings.yaml.enc"
+        else:
+            target = "settings.yaml"
+
+    target_path = Path(target)
+    key_file = Path(key_path)
+
+    # Load existing settings
+    existing: dict[str, str] = {}
+    if target_path.exists():
+        if target.endswith(".enc"):
+            content = read_encrypted_file(target_path, key_file)
+            existing = yaml.safe_load(content) or {}
+        else:
+            existing = yaml.safe_load(target_path.read_text()) or {}
+
+    # Merge token response
+    for key in (
+        "access_token",
+        "refresh_token",
+        "token_type",
+        "expires_in",
+        "scope",
+    ):
+        if key in token_response:
+            existing[key] = token_response[key]
+
+    # Save
+    new_content = yaml.dump(existing, default_flow_style=False)
+    if target.endswith(".enc"):
+        write_encrypted_file(target_path, key_file, new_content)
+        click.echo(f"🔐 Tokens saved to {target} (encrypted)")
+    else:
+        target_path.write_text(new_content)
+        click.echo(f"💾 Tokens saved to {target}")
+
+
 # --- sdk new ---
 
 
@@ -332,6 +390,9 @@ async def oauth2(
     click.echo("✅ OAuth2 flow completed")
     click.echo()
     click.echo(json_mod.dumps(token_response, indent=2))
+
+    # Save tokens to settings file
+    _save_tokens_to_settings(settings, key_path, token_response)
 
 
 # --- sdk edit ---
