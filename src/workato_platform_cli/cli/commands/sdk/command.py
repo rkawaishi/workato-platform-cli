@@ -270,3 +270,85 @@ async def oauth2(
 
     if exit_code != 0:
         raise click.ClickException(f"OAuth2 flow failed with exit code {exit_code}")
+
+
+# --- sdk edit ---
+
+
+@sdk.command(name="edit")
+@click.argument("path", default="settings.yaml.enc")
+@click.option(
+    "--key",
+    "-k",
+    "key_path",
+    default="master.key",
+    help="Path to encryption key file",
+)
+@handle_cli_exceptions
+async def edit_encrypted(path: str, key_path: str) -> None:
+    """Edit an encrypted file (e.g., settings.yaml.enc)
+
+    Decrypts the file, opens it in $EDITOR, and re-encrypts on save.
+    If the file doesn't exist, creates a new encrypted file.
+    """
+    import os
+    import subprocess  # noqa: S404
+    import tempfile
+
+    from workato_platform_cli.cli.commands.sdk.encrypted_file import (
+        generate_key,
+        read_encrypted_file,
+        write_encrypted_file,
+    )
+
+    enc_path = Path(path)
+    key_file = Path(key_path)
+
+    # Generate key if it doesn't exist
+    if not key_file.exists():
+        new_key = generate_key()
+        key_file.write_text(new_key)
+        key_file.chmod(0o600)
+        click.echo(f"🔑 Generated new key: {key_file}")
+        click.echo(
+            "  ⚠️  Save this key securely. "
+            "Without it, encrypted files cannot be decrypted."
+        )
+
+    # Decrypt existing file or start with empty content
+    if enc_path.exists():
+        try:
+            content = read_encrypted_file(enc_path, key_file)
+        except Exception as e:
+            raise click.ClickException(f"Failed to decrypt {enc_path}: {e}") from e
+    else:
+        content = "# Add your connector credentials here\n"
+
+    # Determine editor
+    editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "vi"))
+
+    # Write decrypted content to temp file, open in editor
+    suffix = ".yaml" if "yaml" in path else ".txt"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        result = subprocess.run(  # noqa: S603
+            [editor, tmp_path], timeout=3600
+        )
+        if result.returncode != 0:
+            raise click.ClickException(f"Editor exited with code {result.returncode}")
+
+        # Read edited content
+        edited = Path(tmp_path).read_text()
+
+        if edited == content:
+            click.echo("ℹ️  No changes made")
+            return
+
+        # Re-encrypt and save
+        write_encrypted_file(enc_path, key_file, edited)
+        click.echo(f"✅ Encrypted and saved: {enc_path}")
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
