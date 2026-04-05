@@ -214,8 +214,8 @@ async def test_exec_checks_ruby(
     capture_echo: list[str],
 ) -> None:
     monkeypatch.setattr(
-        "workato_platform_cli.cli.commands.sdk.command.SdkRunner.check_ruby_installed",
-        lambda self: False,
+        "workato_platform_cli.cli.commands.sdk.ruby_executor.shutil.which",
+        lambda cmd: None,
     )
 
     exec_cb = _get_callback(exec_connector)

@@ -199,36 +199,42 @@ async def exec_connector(
     output_file: str | None,
     verbose: bool,
 ) -> None:
-    """Execute a connector block (requires Ruby + workato-connector-sdk gem)
+    """Execute a connector block (requires Ruby)
 
     PATH: Block path (e.g., actions.search.execute, triggers.new_record.poll)
     """
-    runner = SdkRunner()
+    from workato_platform_cli.cli.commands.sdk.ruby_executor import (
+        check_ruby_installed,
+        execute_block,
+    )
 
-    if not runner.check_ruby_installed():
+    if not check_ruby_installed():
         raise click.ClickException(
             "Ruby is not installed. Install Ruby to use 'sdk exec'.\n"
             "  macOS: brew install ruby"
         )
 
-    if not runner.check_gem_installed():
-        raise click.ClickException(
-            "workato-connector-sdk gem is not installed.\n"
-            "  Run: gem install workato-connector-sdk"
-        )
-
-    args = ["exec", path, "-c", connector]
-    if settings:
-        args.extend(["-s", settings])
-    if input_file:
-        args.extend(["-i", input_file])
-    if output_file:
-        args.extend(["-o", output_file])
-    if verbose:
-        args.append("--verbose")
-
     click.echo(f"🔧 Executing: {path}")
-    exit_code = runner.run_interactive(*args)
+
+    # Resolve paths to absolute
+    connector_abs = str(Path(connector).resolve())
+    settings_abs = str(Path(settings).resolve()) if settings else None
+    input_abs = str(Path(input_file).resolve()) if input_file else None
+    output_abs = str(Path(output_file).resolve()) if output_file else None
+
+    exit_code, stdout, stderr = execute_block(
+        connector_path=connector_abs,
+        block_path=path,
+        settings_path=settings_abs,
+        input_path=input_abs,
+        output_path=output_abs,
+        verbose=verbose,
+    )
+
+    if stdout.strip():
+        click.echo(stdout)
+    if stderr.strip():
+        click.echo(stderr, err=True)
 
     if exit_code != 0:
         raise click.ClickException(f"Execution failed with exit code {exit_code}")
