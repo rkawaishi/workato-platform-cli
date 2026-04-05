@@ -336,8 +336,11 @@ async def edit_encrypted(path: str, key_path: str) -> None:
         tmp_path = tmp.name
 
     try:
+        import shlex
+
+        editor_cmd = shlex.split(editor) + [tmp_path]
         result = subprocess.run(  # noqa: S603
-            [editor, tmp_path], timeout=3600
+            editor_cmd, timeout=3600
         )
         if result.returncode != 0:
             raise click.ClickException(f"Editor exited with code {result.returncode}")
