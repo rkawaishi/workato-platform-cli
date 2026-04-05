@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess  # noqa: S404
+import sys
 import textwrap
 
 from pathlib import Path
@@ -14,49 +15,82 @@ def check_ruby_installed() -> bool:
     return shutil.which("ruby") is not None
 
 
-def build_ruby_script(
+def _load_json_file_code(var_name: str, path: str | None) -> str:
+    """Generate Ruby code to load a JSON file into a variable."""
+    if path:
+        return f"{var_name} = JSON.parse(File.read('{path}'))\n"
+    return f"{var_name} = {{}}\n"
+
+
+def _load_settings_code(
+    settings_path: str | None,
+    connection_name: str | None = None,
+) -> str:
+    """Generate Ruby code to load settings."""
+    if not settings_path:
+        return "settings = {}\n"
+
+    p = Path(settings_path)
+    if p.suffix in (".yaml", ".yml"):
+        code = textwrap.dedent(f"""\
+            require 'yaml'
+            all_settings = YAML.load_file('{settings_path}')
+        """)
+    else:
+        code = textwrap.dedent(f"""\
+            all_settings = JSON.parse(File.read('{settings_path}'))
+        """)
+
+    if connection_name:
+        code += f"settings = all_settings['{connection_name}'] || all_settings\n"
+    else:
+        code += "settings = all_settings\n"
+
+    return code
+
+
+def build_ruby_script(  # noqa: PLR0913
     connector_path: str,
     block_path: str,
     settings_path: str | None = None,
+    connection_name: str | None = None,
     input_path: str | None = None,
+    closure_path: str | None = None,
+    args_path: str | None = None,
+    extended_input_schema_path: str | None = None,
+    extended_output_schema_path: str | None = None,
+    config_fields_path: str | None = None,
+    continue_path: str | None = None,
+    from_byte: int | None = None,
+    frame_size: int | None = None,
+    webhook_headers: str | None = None,
+    webhook_params: str | None = None,
+    webhook_payload_path: str | None = None,
+    webhook_url: str | None = None,
 ) -> str:
-    """Build a Ruby script that loads and executes a connector block.
+    """Build a Ruby script that loads and executes a connector block."""
+    settings_code = _load_settings_code(settings_path, connection_name)
+    input_code = _load_json_file_code("input", input_path)
+    closure_code = _load_json_file_code("closure", closure_path)
+    args_code = _load_json_file_code("args_data", args_path)
+    ext_in_code = _load_json_file_code(
+        "extended_input_schema", extended_input_schema_path
+    )
+    ext_out_code = _load_json_file_code(
+        "extended_output_schema", extended_output_schema_path
+    )
+    config_code = _load_json_file_code("config_fields", config_fields_path)
+    continue_code = _load_json_file_code("continue_data", continue_path)
+    webhook_payload_code = _load_json_file_code("webhook_payload", webhook_payload_path)
 
-    Args:
-        connector_path: Path to connector.rb
-        block_path: Dot-separated path to the block
-            (e.g., "actions.search.execute", "methods.my_method")
-        settings_path: Optional path to settings YAML file
-        input_path: Optional path to input JSON file
-    """
-    # Load settings
-    settings_code = ""
-    if settings_path:
-        p = Path(settings_path)
-        if p.suffix in (".yaml", ".yml"):
-            settings_code = textwrap.dedent(f"""\
-                require 'yaml'
-                settings = YAML.load_file('{settings_path}')
-            """)
-        else:
-            settings_code = textwrap.dedent(f"""\
-                require 'json'
-                settings = JSON.parse(File.read('{settings_path}'))
-            """)
-    else:
-        settings_code = "settings = {}\n"
+    # Webhook extras
+    wh_headers = f"'{webhook_headers}'" if webhook_headers else "nil"
+    wh_params = f"'{webhook_params}'" if webhook_params else "nil"
+    wh_url = f"'{webhook_url}'" if webhook_url else "nil"
+    from_val = str(from_byte) if from_byte is not None else "nil"
+    frame_val = str(frame_size) if frame_size is not None else "nil"
 
-    # Load input
-    input_code = ""
-    if input_path:
-        input_code = textwrap.dedent(f"""\
-            require 'json'
-            input = JSON.parse(File.read('{input_path}'))
-        """)
-    else:
-        input_code = "input = {}\n"
-
-    # Navigate the connector hash to find the target block
+    # Navigate the connector hash
     parts = block_path.split(".")
     navigation = "connector"
     for part in parts:
@@ -72,6 +106,19 @@ def build_ruby_script(
 
         {settings_code}
         {input_code}
+        {closure_code}
+        {args_code}
+        {ext_in_code}
+        {ext_out_code}
+        {config_code}
+        {continue_code}
+        {webhook_payload_code}
+
+        webhook_headers_raw = {wh_headers}
+        webhook_params_raw = {wh_params}
+        webhook_url = {wh_url}
+        from_byte = {from_val}
+        frame_size_val = {frame_val}
 
         # Capture auth headers from apply lambda
         $auth_headers = {{}}
@@ -195,24 +242,20 @@ def build_ruby_script(
         block = {navigation}
 
         if block.nil?
-          STDERR.puts "Error: Block '#{block_path}' not found in connector"
+          STDERR.puts "Error: Block '{block_path}' not found"
           exit 1
         end
 
         if block.is_a?(Proc)
-          # Determine arity and call with appropriate args
-          case block.arity.abs
-          when 0
-            result = block.call
-          when 1
-            result = block.call(settings)
-          when 2
-            result = block.call(settings, input)
-          else
-            result = block.call(settings, input)
+          a = block.arity.abs
+          case a
+          when 0 then result = block.call
+          when 1 then result = block.call(settings)
+          when 2 then result = block.call(settings, input)
+          when 3 then result = block.call(settings, input, closure)
+          else result = block.call(settings, input, closure)
           end
         elsif block.is_a?(Hash)
-          # It's a nested hash, print its keys
           result = block.keys.map(&:to_s)
         else
           result = block
@@ -222,13 +265,27 @@ def build_ruby_script(
     """)
 
 
-def execute_block(
+def execute_block(  # noqa: PLR0913
     connector_path: str,
     block_path: str,
     settings_path: str | None = None,
+    connection_name: str | None = None,
     input_path: str | None = None,
     output_path: str | None = None,
+    closure_path: str | None = None,
+    args_path: str | None = None,
+    extended_input_schema_path: str | None = None,
+    extended_output_schema_path: str | None = None,
+    config_fields_path: str | None = None,
+    continue_path: str | None = None,
+    from_byte: int | None = None,
+    frame_size: int | None = None,
+    webhook_headers: str | None = None,
+    webhook_params: str | None = None,
+    webhook_payload_path: str | None = None,
+    webhook_url: str | None = None,
     verbose: bool = False,
+    debug: bool = False,
 ) -> tuple[int, str, str]:
     """Execute a connector block using Ruby.
 
@@ -238,7 +295,20 @@ def execute_block(
         connector_path=connector_path,
         block_path=block_path,
         settings_path=settings_path,
+        connection_name=connection_name,
         input_path=input_path,
+        closure_path=closure_path,
+        args_path=args_path,
+        extended_input_schema_path=extended_input_schema_path,
+        extended_output_schema_path=extended_output_schema_path,
+        config_fields_path=config_fields_path,
+        continue_path=continue_path,
+        from_byte=from_byte,
+        frame_size=frame_size,
+        webhook_headers=webhook_headers,
+        webhook_params=webhook_params,
+        webhook_payload_path=webhook_payload_path,
+        webhook_url=webhook_url,
     )
 
     ruby_path = shutil.which("ruby")
@@ -246,8 +316,6 @@ def execute_block(
         return 1, "", "Ruby is not installed"
 
     if verbose:
-        import sys
-
         sys.stderr.write(f"--- Ruby script ---\n{script}\n---\n")
 
     result = subprocess.run(  # noqa: S603
@@ -256,6 +324,9 @@ def execute_block(
         text=True,
         timeout=300,
     )
+
+    if debug and result.returncode != 0:
+        sys.stderr.write(f"--- DEBUG stderr ---\n{result.stderr}\n---\n")
 
     # Write output to file if requested
     if output_path and result.returncode == 0 and result.stdout.strip():

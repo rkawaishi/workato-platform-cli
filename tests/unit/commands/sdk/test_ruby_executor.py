@@ -58,3 +58,63 @@ def test_build_ruby_script_methods() -> None:
     )
 
     assert "[:methods][:my_helper]" in script
+
+
+def test_build_ruby_script_with_connection_name() -> None:
+    script = build_ruby_script(
+        connector_path="connector.rb",
+        block_path="test",
+        settings_path="settings.yaml",
+        connection_name="production",
+    )
+
+    assert "all_settings['production']" in script
+
+
+def test_build_ruby_script_with_closure() -> None:
+    script = build_ruby_script(
+        connector_path="connector.rb",
+        block_path="triggers.new_deal.poll",
+        closure_path="closure.json",
+    )
+
+    assert "closure = JSON.parse" in script
+    assert "closure.json" in script
+
+
+def test_build_ruby_script_pick_lists() -> None:
+    script = build_ruby_script(
+        connector_path="connector.rb",
+        block_path="pick_lists.deal_types",
+    )
+
+    assert "[:pick_lists][:deal_types]" in script
+
+
+def test_build_ruby_script_object_definitions() -> None:
+    script = build_ruby_script(
+        connector_path="connector.rb",
+        block_path="object_definitions.deal",
+    )
+
+    assert "[:object_definitions][:deal]" in script
+
+
+def test_build_ruby_script_has_auth_apply() -> None:
+    script = build_ruby_script(
+        connector_path="connector.rb",
+        block_path="test",
+    )
+
+    assert "$auth_headers" in script
+    assert "apply_auth" in script
+
+
+def test_build_ruby_script_has_base_uri() -> None:
+    script = build_ruby_script(
+        connector_path="connector.rb",
+        block_path="test",
+    )
+
+    assert "$base_uri" in script
+    assert "resolve_url" in script

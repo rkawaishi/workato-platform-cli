@@ -293,22 +293,80 @@ async def generate_schema(
 @click.option(
     "--key", "-k", "key_path", default="master.key", help="Encryption key file"
 )
+@click.option(
+    "--connection",
+    "-n",
+    "connection_name",
+    default=None,
+    help="Connection name (for multiple credential sets)",
+)
 @click.option("--input", "-i", "input_file", default=None, help="Input JSON file")
 @click.option("--output", "-o", "output_file", default=None, help="Output JSON file")
+@click.option("--closure", default=None, help="Closure/state JSON file (for triggers)")
+@click.option(
+    "--args", "args_file", default=None, help="Arguments JSON file (for methods)"
+)
+@click.option(
+    "--extended-input-schema",
+    default=None,
+    help="Extended input schema JSON file",
+)
+@click.option(
+    "--extended-output-schema",
+    default=None,
+    help="Extended output schema JSON file",
+)
+@click.option("--config-fields", default=None, help="Config fields JSON file")
+@click.option(
+    "--continue", "continue_data", default=None, help="Continue data JSON file"
+)
+@click.option(
+    "--from",
+    "from_byte",
+    default=None,
+    type=int,
+    help="Starting byte range (for streams)",
+)
+@click.option(
+    "--frame-size",
+    default=None,
+    type=int,
+    help="Requested frame size in bytes",
+)
+@click.option("--webhook-headers", default=None, help="Webhook headers JSON")
+@click.option("--webhook-params", default=None, help="Webhook params JSON")
+@click.option("--webhook-payload", default=None, help="Webhook payload JSON file")
+@click.option("--webhook-url", default=None, help="Webhook URL")
 @click.option("--verbose", is_flag=True, help="Show all requests/responses")
+@click.option("--debug", is_flag=True, help="Show complete stacktrace on errors")
 @handle_cli_exceptions
-async def exec_connector(
+async def exec_connector(  # noqa: PLR0913
     path: str,
     connector: str,
     settings: str | None,
     key_path: str,
+    connection_name: str | None,
     input_file: str | None,
     output_file: str | None,
+    closure: str | None,
+    args_file: str | None,
+    extended_input_schema: str | None,
+    extended_output_schema: str | None,
+    config_fields: str | None,
+    continue_data: str | None,
+    from_byte: int | None,
+    frame_size: int | None,
+    webhook_headers: str | None,
+    webhook_params: str | None,
+    webhook_payload: str | None,
+    webhook_url: str | None,
     verbose: bool,
+    debug: bool,
 ) -> None:
     """Execute a connector block (requires Ruby)
 
-    PATH: Block path (e.g., actions.search.execute, triggers.new_record.poll)
+    PATH: Block path (e.g., actions.search.execute, triggers.new_record.poll,
+    methods.my_method, pick_lists.my_list, object_definitions.my_obj)
     """
     from workato_platform_cli.cli.commands.sdk.ruby_executor import (
         check_ruby_installed,
@@ -332,13 +390,30 @@ async def exec_connector(
     input_abs = str(Path(input_file).resolve()) if input_file else None
     output_abs = str(Path(output_file).resolve()) if output_file else None
 
+    def _resolve_opt(p: str | None) -> str | None:
+        return str(Path(p).resolve()) if p else None
+
     exit_code, stdout, stderr = execute_block(
         connector_path=connector_abs,
         block_path=path,
         settings_path=settings_abs,
+        connection_name=connection_name,
         input_path=input_abs,
         output_path=output_abs,
+        closure_path=_resolve_opt(closure),
+        args_path=_resolve_opt(args_file),
+        extended_input_schema_path=_resolve_opt(extended_input_schema),
+        extended_output_schema_path=_resolve_opt(extended_output_schema),
+        config_fields_path=_resolve_opt(config_fields),
+        continue_path=_resolve_opt(continue_data),
+        from_byte=from_byte,
+        frame_size=frame_size,
+        webhook_headers=webhook_headers,
+        webhook_params=webhook_params,
+        webhook_payload_path=_resolve_opt(webhook_payload),
+        webhook_url=webhook_url,
         verbose=verbose,
+        debug=debug,
     )
 
     if stdout.strip():

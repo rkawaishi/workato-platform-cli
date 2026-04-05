@@ -225,9 +225,23 @@ async def test_exec_checks_ruby(
             connector="connector.rb",
             settings=None,
             key_path="master.key",
+            connection_name=None,
             input_file=None,
             output_file=None,
+            closure=None,
+            args_file=None,
+            extended_input_schema=None,
+            extended_output_schema=None,
+            config_fields=None,
+            continue_data=None,
+            from_byte=None,
+            frame_size=None,
+            webhook_headers=None,
+            webhook_params=None,
+            webhook_payload=None,
+            webhook_url=None,
             verbose=False,
+            debug=False,
         )
 
     output = "\n".join(capture_echo)
