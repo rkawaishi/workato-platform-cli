@@ -68,62 +68,103 @@ def build_ruby_script(
         require 'net/http'
         require 'uri'
 
-        # Stub HTTP methods (get/post/put/patch/delete) for connector blocks
-        def get(url, headers = {{}})
-          uri = URI.parse(url)
-          req = Net::HTTP::Get.new(uri)
-          headers.each {{ |k, v| req[k] = v }}
-          res = Net::HTTP.start(uri.hostname, uri.port,
-            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
-          JSON.parse(res.body) rescue res.body
-        end
-
-        def post(url, body = nil, headers = {{}})
-          uri = URI.parse(url)
-          req = Net::HTTP::Post.new(uri)
-          headers.each {{ |k, v| req[k] = v }}
-          req.body = body.is_a?(Hash) ? body.to_json : body.to_s if body
-          req['Content-Type'] ||= 'application/json'
-          res = Net::HTTP.start(uri.hostname, uri.port,
-            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
-          JSON.parse(res.body) rescue res.body
-        end
-
-        def put(url, body = nil, headers = {{}})
-          uri = URI.parse(url)
-          req = Net::HTTP::Put.new(uri)
-          headers.each {{ |k, v| req[k] = v }}
-          req.body = body.is_a?(Hash) ? body.to_json : body.to_s if body
-          req['Content-Type'] ||= 'application/json'
-          res = Net::HTTP.start(uri.hostname, uri.port,
-            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
-          JSON.parse(res.body) rescue res.body
-        end
-
-        def patch(url, body = nil, headers = {{}})
-          uri = URI.parse(url)
-          req = Net::HTTP::Patch.new(uri)
-          headers.each {{ |k, v| req[k] = v }}
-          req.body = body.is_a?(Hash) ? body.to_json : body.to_s if body
-          req['Content-Type'] ||= 'application/json'
-          res = Net::HTTP.start(uri.hostname, uri.port,
-            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
-          JSON.parse(res.body) rescue res.body
-        end
-
-        def delete(url, headers = {{}})
-          uri = URI.parse(url)
-          req = Net::HTTP::Delete.new(uri)
-          headers.each {{ |k, v| req[k] = v }}
-          res = Net::HTTP.start(uri.hostname, uri.port,
-            use_ssl: uri.scheme == 'https') {{ |http| http.request(req) }}
-          JSON.parse(res.body) rescue res.body
-        end
-
         connector = eval(File.read('{connector_path}'))
 
         {settings_code}
         {input_code}
+
+        # Resolve base_uri from connector
+        $base_uri = ''
+        bu = connector.dig(:connection, :base_uri)
+        if bu.is_a?(Proc)
+          $base_uri = bu.call(settings).to_s rescue ''
+        elsif bu.is_a?(String)
+          $base_uri = bu
+        end
+
+        def resolve_url(path)
+          if path.start_with?('http')
+            path
+          else
+            $base_uri.chomp('/') + '/' + path.sub(/^\\//, '')
+          end
+        end
+
+        def get(path, params = {{}})
+          url = resolve_url(path)
+          uri = URI.parse(url)
+          if params.is_a?(Hash) && !params.empty?
+            uri.query = URI.encode_www_form(params)
+          end
+          req = Net::HTTP::Get.new(uri)
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http|
+            http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
+
+        def post(path, body = nil, headers = {{}})
+          url = resolve_url(path)
+          uri = URI.parse(url)
+          req = Net::HTTP::Post.new(uri)
+          headers.each {{ |k, v| req[k.to_s] = v.to_s }}
+          if body.is_a?(Hash)
+            req.body = body.to_json
+            req['Content-Type'] ||= 'application/json'
+          elsif body
+            req.body = body.to_s
+          end
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http|
+            http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
+
+        def put(path, body = nil, headers = {{}})
+          url = resolve_url(path)
+          uri = URI.parse(url)
+          req = Net::HTTP::Put.new(uri)
+          headers.each {{ |k, v| req[k.to_s] = v.to_s }}
+          if body.is_a?(Hash)
+            req.body = body.to_json
+            req['Content-Type'] ||= 'application/json'
+          elsif body
+            req.body = body.to_s
+          end
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http|
+            http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
+
+        def patch(path, body = nil, headers = {{}})
+          url = resolve_url(path)
+          uri = URI.parse(url)
+          req = Net::HTTP::Patch.new(uri)
+          headers.each {{ |k, v| req[k.to_s] = v.to_s }}
+          if body.is_a?(Hash)
+            req.body = body.to_json
+            req['Content-Type'] ||= 'application/json'
+          elsif body
+            req.body = body.to_s
+          end
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http|
+            http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
+
+        def delete(path, headers = {{}})
+          url = resolve_url(path)
+          uri = URI.parse(url)
+          req = Net::HTTP::Delete.new(uri)
+          headers.each {{ |k, v| req[k.to_s] = v.to_s }}
+          res = Net::HTTP.start(uri.hostname, uri.port,
+            use_ssl: uri.scheme == 'https') {{ |http|
+            http.request(req) }}
+          JSON.parse(res.body) rescue res.body
+        end
+
         block = {navigation}
 
         if block.nil?
