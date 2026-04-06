@@ -3,6 +3,7 @@
 import json
 
 from pathlib import Path
+from typing import Any
 
 import asyncclick as click
 
@@ -11,7 +12,6 @@ from dependency_injector.wiring import Provide, inject
 from workato_platform_cli import Workato
 from workato_platform_cli.cli.commands.sdk.connector_pusher import push_connector
 from workato_platform_cli.cli.commands.sdk.scaffold import generate_scaffold
-from workato_platform_cli.cli.commands.sdk.sdk_runner import SdkRunner
 from workato_platform_cli.cli.containers import Container
 from workato_platform_cli.cli.utils import Spinner
 from workato_platform_cli.cli.utils.exception_handler import (
@@ -24,6 +24,128 @@ from workato_platform_cli.cli.utils.exception_handler import (
 def sdk() -> None:
     """Connector SDK commands"""
     pass
+
+
+def _resolve_settings(
+    settings: str | None,
+    key_path: str,
+) -> str | None:
+    """Resolve settings file path, decrypting .enc files if needed.
+
+    If settings is None, auto-detects settings.yaml.enc or settings.yaml.
+    If settings ends with .enc, decrypts to a temp .yaml file.
+    """
+    import tempfile
+
+    from workato_platform_cli.cli.commands.sdk.encrypted_file import (
+        read_encrypted_file,
+    )
+
+    # Auto-detect settings file
+    if settings is None:
+        if Path("settings.yaml.enc").exists():
+            settings = "settings.yaml.enc"
+        elif Path("settings.yaml").exists():
+            settings = "settings.yaml"
+        else:
+            return None
+
+    # Decrypt .enc files to temp file
+    if settings.endswith(".enc"):
+        key_file = Path(key_path)
+        enc_file = Path(settings)
+        try:
+            content = read_encrypted_file(enc_file, key_file)
+        except FileNotFoundError as e:
+            raise click.ClickException(str(e)) from e
+
+        import atexit
+
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".yaml",
+            delete=False,
+            encoding="utf-8",
+        ) as tmp:
+            tmp.write(content)
+
+        tmp_path_to_clean = tmp.name
+        atexit.register(
+            lambda p=tmp_path_to_clean: Path(p).unlink(missing_ok=True)  # type: ignore[misc]
+        )
+        click.echo(f"🔓 Decrypted {settings}")
+        return tmp.name
+
+    return settings
+
+
+def _save_tokens_to_settings(
+    settings: str | None,
+    key_path: str,
+    token_response: dict[str, str],
+    connection_name: str | None = None,
+) -> None:
+    """Merge token response into settings file.
+
+    Following workato-connector-sdk convention, tokens (access_token,
+    refresh_token, etc.) are stored directly in settings.yaml.
+    If connection_name is provided, tokens are saved under that key.
+    """
+    import yaml
+
+    from workato_platform_cli.cli.commands.sdk.encrypted_file import (
+        read_encrypted_file,
+        write_encrypted_file,
+    )
+
+    # Determine target settings file
+    target = settings
+    if target is None:
+        if Path("settings.yaml.enc").exists():
+            target = "settings.yaml.enc"
+        else:
+            target = "settings.yaml"
+
+    target_path = Path(target)
+    key_file = Path(key_path)
+
+    # Load existing settings
+    existing: dict = {}
+    if target_path.exists():
+        if target.endswith(".enc"):
+            content = read_encrypted_file(target_path, key_file)
+            existing = yaml.safe_load(content) or {}
+        else:
+            existing = yaml.safe_load(target_path.read_text()) or {}
+
+    # Determine where to merge tokens
+    if connection_name and connection_name in existing:
+        merge_target = existing[connection_name]
+    elif connection_name:
+        existing[connection_name] = {}
+        merge_target = existing[connection_name]
+    else:
+        merge_target = existing
+
+    # Merge token response
+    for key in (
+        "access_token",
+        "refresh_token",
+        "token_type",
+        "expires_in",
+        "scope",
+    ):
+        if key in token_response:
+            merge_target[key] = token_response[key]
+
+    # Save
+    new_content = yaml.dump(existing, default_flow_style=False)
+    if target.endswith(".enc"):
+        write_encrypted_file(target_path, key_file, new_content)
+        click.echo(f"🔐 Tokens saved to {target} (encrypted)")
+    else:
+        target_path.write_text(new_content)
+        click.echo(f"💾 Tokens saved to {target}")
 
 
 # --- sdk new ---
@@ -187,51 +309,208 @@ async def generate_schema(
 @click.argument("path")
 @click.option("--connector", "-c", default="connector.rb", help="Connector file path")
 @click.option("--settings", "-s", default=None, help="Settings file path")
+@click.option(
+    "--key", "-k", "key_path", default="master.key", help="Encryption key file"
+)
+@click.option(
+    "--connection",
+    "-n",
+    "connection_name",
+    default=None,
+    help="Connection name (for multiple credential sets)",
+)
 @click.option("--input", "-i", "input_file", default=None, help="Input JSON file")
 @click.option("--output", "-o", "output_file", default=None, help="Output JSON file")
+@click.option("--closure", default=None, help="Closure/state JSON file (for triggers)")
+@click.option(
+    "--args", "args_file", default=None, help="Arguments JSON file (for methods)"
+)
+@click.option(
+    "--extended-input-schema",
+    default=None,
+    help="Extended input schema JSON file",
+)
+@click.option(
+    "--extended-output-schema",
+    default=None,
+    help="Extended output schema JSON file",
+)
+@click.option("--config-fields", default=None, help="Config fields JSON file")
+@click.option(
+    "--continue", "continue_data", default=None, help="Continue data JSON file"
+)
+@click.option(
+    "--from",
+    "from_byte",
+    default=None,
+    type=int,
+    help="Starting byte range (for streams)",
+)
+@click.option(
+    "--frame-size",
+    default=None,
+    type=int,
+    help="Requested frame size in bytes",
+)
+@click.option("--webhook-headers", default=None, help="Webhook headers JSON")
+@click.option("--webhook-params", default=None, help="Webhook params JSON")
+@click.option("--webhook-payload", default=None, help="Webhook payload JSON file")
+@click.option("--webhook-url", default=None, help="Webhook URL")
 @click.option("--verbose", is_flag=True, help="Show all requests/responses")
+@click.option("--debug", is_flag=True, help="Show complete stacktrace on errors")
 @handle_cli_exceptions
-async def exec_connector(
+async def exec_connector(  # noqa: PLR0913
     path: str,
     connector: str,
     settings: str | None,
+    key_path: str,
+    connection_name: str | None,
     input_file: str | None,
     output_file: str | None,
+    closure: str | None,
+    args_file: str | None,
+    extended_input_schema: str | None,
+    extended_output_schema: str | None,
+    config_fields: str | None,
+    continue_data: str | None,
+    from_byte: int | None,
+    frame_size: int | None,
+    webhook_headers: str | None,
+    webhook_params: str | None,
+    webhook_payload: str | None,
+    webhook_url: str | None,
     verbose: bool,
+    debug: bool,
 ) -> None:
-    """Execute a connector block (requires Ruby + workato-connector-sdk gem)
+    """Execute a connector block (requires Ruby)
 
-    PATH: Block path (e.g., actions.search.execute, triggers.new_record.poll)
+    PATH: Block path (e.g., actions.search.execute, triggers.new_record.poll,
+    methods.my_method, pick_lists.my_list, object_definitions.my_obj)
     """
-    runner = SdkRunner()
+    from workato_platform_cli.cli.commands.sdk.ruby_executor import (
+        check_ruby_installed,
+        execute_block,
+    )
 
-    if not runner.check_ruby_installed():
+    if not check_ruby_installed():
         raise click.ClickException(
             "Ruby is not installed. Install Ruby to use 'sdk exec'.\n"
             "  macOS: brew install ruby"
         )
 
-    if not runner.check_gem_installed():
-        raise click.ClickException(
-            "workato-connector-sdk gem is not installed.\n"
-            "  Run: gem install workato-connector-sdk"
-        )
-
-    args = ["exec", path, "-c", connector]
-    if settings:
-        args.extend(["-s", settings])
-    if input_file:
-        args.extend(["-i", input_file])
-    if output_file:
-        args.extend(["-o", output_file])
-    if verbose:
-        args.append("--verbose")
-
     click.echo(f"🔧 Executing: {path}")
-    exit_code = runner.run_interactive(*args)
+
+    # Resolve settings (decrypt .enc files)
+    settings_resolved = _resolve_settings(settings, key_path)
+
+    # Resolve paths to absolute
+    connector_abs = str(Path(connector).resolve())
+    settings_abs = str(Path(settings_resolved).resolve()) if settings_resolved else None
+    input_abs = str(Path(input_file).resolve()) if input_file else None
+    output_abs = str(Path(output_file).resolve()) if output_file else None
+
+    def _resolve_opt(p: str | None) -> str | None:
+        return str(Path(p).resolve()) if p else None
+
+    exec_kwargs: dict[str, Any] = {
+        "connector_path": connector_abs,
+        "block_path": path,
+        "settings_path": settings_abs,
+        "connection_name": connection_name,
+        "input_path": input_abs,
+        "output_path": output_abs,
+        "closure_path": _resolve_opt(closure),
+        "args_path": _resolve_opt(args_file),
+        "extended_input_schema_path": _resolve_opt(extended_input_schema),
+        "extended_output_schema_path": _resolve_opt(extended_output_schema),
+        "config_fields_path": _resolve_opt(config_fields),
+        "continue_path": _resolve_opt(continue_data),
+        "from_byte": from_byte,
+        "frame_size": frame_size,
+        "webhook_headers": webhook_headers,
+        "webhook_params": webhook_params,
+        "webhook_payload_path": _resolve_opt(webhook_payload),
+        "webhook_url": webhook_url,
+        "verbose": verbose,
+        "debug": debug,
+    }
+
+    exit_code, stdout, stderr = execute_block(**exec_kwargs)
+
+    # Check for auth errors and attempt token refresh
+    needs_refresh = False
+    if stdout.strip():
+        try:
+            import json as json_mod
+
+            resp = json_mod.loads(stdout)
+            if isinstance(resp, dict):
+                code = resp.get("code", "")
+                status = resp.get("status", "")
+                if any(
+                    k in str(code).lower() + str(status).lower()
+                    for k in ("expired", "unauthorized", "401", "403")
+                ):
+                    needs_refresh = True
+        except (json_mod.JSONDecodeError, ValueError):
+            pass
+
+    if needs_refresh and settings_abs:
+        click.echo("🔄 Token expired. Attempting refresh...")
+        refreshed = _try_token_refresh(connector_abs, settings_abs, connection_name)
+        if refreshed:
+            # Update settings file with new tokens
+            _save_tokens_to_settings(settings, key_path, refreshed, connection_name)
+
+            # Re-resolve settings and retry
+            settings_resolved = _resolve_settings(settings, key_path)
+            settings_abs = (
+                str(Path(settings_resolved).resolve()) if settings_resolved else None
+            )
+
+            click.echo("🔧 Retrying with refreshed token...")
+            exec_kwargs["settings_path"] = settings_abs
+            exit_code, stdout, stderr = execute_block(**exec_kwargs)
+
+    if stdout.strip():
+        click.echo(stdout)
+    if stderr.strip():
+        click.echo(stderr, err=True)
 
     if exit_code != 0:
         raise click.ClickException(f"Execution failed with exit code {exit_code}")
+
+
+def _try_token_refresh(
+    connector_path: str,
+    settings_path: str,
+    connection_name: str | None,
+) -> dict[str, str] | None:
+    """Try to refresh the OAuth2 token using the connector's refresh lambda."""
+    from workato_platform_cli.cli.commands.sdk.ruby_executor import (
+        execute_block,
+    )
+
+    exit_code, stdout, stderr = execute_block(
+        connector_path=connector_path,
+        block_path="connection.authorization.refresh",
+        settings_path=settings_path,
+        connection_name=connection_name,
+    )
+
+    if exit_code == 0 and stdout.strip():
+        try:
+            import json as json_mod
+
+            result = json_mod.loads(stdout)
+            if isinstance(result, dict) and "access_token" in result:
+                click.echo("✅ Token refreshed successfully")
+                return result
+        except (json_mod.JSONDecodeError, ValueError):
+            pass
+
+    click.echo("⚠️  Token refresh failed. Please re-authenticate.")
+    return None
 
 
 # --- sdk oauth2 ---
@@ -240,36 +519,63 @@ async def exec_connector(
 @sdk.command(name="oauth2")
 @click.option("--connector", "-c", default="connector.rb", help="Connector file path")
 @click.option("--settings", "-s", default=None, help="Settings file path")
+@click.option(
+    "--key", "-k", "key_path", default="master.key", help="Encryption key file"
+)
+@click.option(
+    "--connection",
+    "-n",
+    "connection_name",
+    default=None,
+    help="Connection name (for multiple credential sets)",
+)
 @click.option("--port", default=45555, type=int, help="Callback server port")
 @click.option("--ip", default="127.0.0.1", help="Callback server IP")
+@click.option(
+    "--https/--no-https",
+    "use_https",
+    default=False,
+    help="Use HTTPS with self-signed certificate",
+)
+@click.option("--verbose", is_flag=True, help="Show HTTP requests/responses")
 @handle_cli_exceptions
 async def oauth2(
     connector: str,
     settings: str | None,
+    key_path: str,
+    connection_name: str | None,
     port: int,
     ip: str,
+    use_https: bool,
+    verbose: bool,
 ) -> None:
-    """Run OAuth2 authorization flow (requires Ruby + workato-connector-sdk gem)"""
-    runner = SdkRunner()
+    """Run OAuth2 authorization flow (requires Ruby for connector parsing)"""
+    import json as json_mod
 
-    if not runner.check_ruby_installed():
-        raise click.ClickException("Ruby is not installed.")
+    from workato_platform_cli.cli.commands.sdk.oauth2_flow import (
+        run_oauth2_flow,
+    )
 
-    if not runner.check_gem_installed():
-        raise click.ClickException(
-            "workato-connector-sdk gem is not installed.\n"
-            "  Run: gem install workato-connector-sdk"
-        )
-
-    args = ["oauth2", "-c", connector, "--port", str(port), "--ip", ip]
-    if settings:
-        args.extend(["-s", settings])
+    settings_resolved = _resolve_settings(settings, key_path)
 
     click.echo("🔐 Starting OAuth2 authorization flow...")
-    exit_code = runner.run_interactive(*args)
 
-    if exit_code != 0:
-        raise click.ClickException(f"OAuth2 flow failed with exit code {exit_code}")
+    token_response = await run_oauth2_flow(
+        connector_path=connector,
+        settings_path=settings_resolved,
+        connection_name=connection_name,
+        port=port,
+        ip=ip,
+        use_https=use_https,
+        verbose=verbose,
+    )
+
+    click.echo("✅ OAuth2 flow completed")
+    click.echo()
+    click.echo(json_mod.dumps(token_response, indent=2))
+
+    # Save tokens to settings file
+    _save_tokens_to_settings(settings, key_path, token_response, connection_name)
 
 
 # --- sdk edit ---

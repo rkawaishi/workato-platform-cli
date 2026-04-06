@@ -214,8 +214,8 @@ async def test_exec_checks_ruby(
     capture_echo: list[str],
 ) -> None:
     monkeypatch.setattr(
-        "workato_platform_cli.cli.commands.sdk.command.SdkRunner.check_ruby_installed",
-        lambda self: False,
+        "workato_platform_cli.cli.commands.sdk.ruby_executor.shutil.which",
+        lambda cmd: None,
     )
 
     exec_cb = _get_callback(exec_connector)
@@ -224,9 +224,24 @@ async def test_exec_checks_ruby(
             path="actions.test.execute",
             connector="connector.rb",
             settings=None,
+            key_path="master.key",
+            connection_name=None,
             input_file=None,
             output_file=None,
+            closure=None,
+            args_file=None,
+            extended_input_schema=None,
+            extended_output_schema=None,
+            config_fields=None,
+            continue_data=None,
+            from_byte=None,
+            frame_size=None,
+            webhook_headers=None,
+            webhook_params=None,
+            webhook_payload=None,
+            webhook_url=None,
             verbose=False,
+            debug=False,
         )
 
     output = "\n".join(capture_echo)
