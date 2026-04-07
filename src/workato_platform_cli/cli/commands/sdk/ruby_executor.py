@@ -56,11 +56,26 @@ def _load_settings_code(
     return code
 
 
+def _load_account_properties_code(
+    account_properties_path: str | None,
+) -> str:
+    """Generate Ruby code to load account properties."""
+    if not account_properties_path:
+        return "account_properties = {}\n"
+
+    p = Path(account_properties_path)
+    safe = _escape_ruby_str(account_properties_path)
+    if p.suffix in (".yaml", ".yml"):
+        return f"account_properties = YAML.load_file('{safe}') || {{}}\n"
+    return f"account_properties = JSON.parse(File.read('{safe}')) || {{}}\n"
+
+
 def build_ruby_script(  # noqa: PLR0913
     connector_path: str,
     block_path: str,
     settings_path: str | None = None,
     connection_name: str | None = None,
+    account_properties_path: str | None = None,
     input_path: str | None = None,
     closure_path: str | None = None,
     args_path: str | None = None,
@@ -77,6 +92,7 @@ def build_ruby_script(  # noqa: PLR0913
 ) -> str:
     """Build a Ruby script that loads and executes a connector block."""
     settings_code = _load_settings_code(settings_path, connection_name)
+    account_properties_code = _load_account_properties_code(account_properties_path)
     input_code = _load_json_file_code("input", input_path)
     closure_code = _load_json_file_code("closure", closure_path)
     args_code = _load_json_file_code("args_data", args_path)
@@ -111,6 +127,7 @@ def build_ruby_script(  # noqa: PLR0913
         connector = eval(File.read('{_escape_ruby_str(connector_path)}'))
 
         {settings_code}
+        {account_properties_code}
         {input_code}
         {closure_code}
         {args_code}
@@ -276,6 +293,7 @@ def execute_block(  # noqa: PLR0913
     block_path: str,
     settings_path: str | None = None,
     connection_name: str | None = None,
+    account_properties_path: str | None = None,
     input_path: str | None = None,
     output_path: str | None = None,
     closure_path: str | None = None,
@@ -302,6 +320,7 @@ def execute_block(  # noqa: PLR0913
         block_path=block_path,
         settings_path=settings_path,
         connection_name=connection_name,
+        account_properties_path=account_properties_path,
         input_path=input_path,
         closure_path=closure_path,
         args_path=args_path,

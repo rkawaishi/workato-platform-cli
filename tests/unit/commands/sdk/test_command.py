@@ -226,6 +226,7 @@ async def test_exec_checks_ruby(
             settings=None,
             key_path="master.key",
             connection_name=None,
+            account_properties=None,
             input_file=None,
             output_file=None,
             closure=None,
