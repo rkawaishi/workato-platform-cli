@@ -66,7 +66,10 @@ def _load_account_properties_code(
     p = Path(account_properties_path)
     safe = _escape_ruby_str(account_properties_path)
     if p.suffix in (".yaml", ".yml"):
-        return f"account_properties = YAML.load_file('{safe}') || {{}}\n"
+        return (
+            f"require 'yaml'\n"
+            f"account_properties = YAML.load_file('{safe}') || {{}}\n"
+        )
     return f"account_properties = JSON.parse(File.read('{safe}')) || {{}}\n"
 
 
@@ -276,7 +279,8 @@ def build_ruby_script(  # noqa: PLR0913
           when 1 then result = block.call(settings)
           when 2 then result = block.call(settings, input)
           when 3 then result = block.call(settings, input, closure)
-          else result = block.call(settings, input, closure)
+          when 4 then result = block.call(settings, input, closure, account_properties)
+          else result = block.call(settings, input, closure, account_properties)
           end
         elsif block.is_a?(Hash)
           result = block.keys.map(&:to_s)

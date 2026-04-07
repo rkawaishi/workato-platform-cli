@@ -258,6 +258,7 @@ all_settings = JSON.parse(File.read('{abs_settings}'))
         ap_path = Path(account_properties_path)
         if ap_path.suffix in (".yaml", ".yml"):
             account_properties_code = (
+                f"require 'yaml'\n"
                 f"account_properties = YAML.load_file('{abs_ap}') || {{}}\n"
             )
         else:
