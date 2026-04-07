@@ -252,19 +252,16 @@ all_settings = JSON.parse(File.read('{abs_settings}'))
         settings_code = "settings = {}\n"
 
     # Load account_properties
-    account_properties_code = "account_properties = {}\n"
-    if account_properties_path:
-        abs_ap = _esc(str(Path(account_properties_path).resolve()))
-        ap_path = Path(account_properties_path)
-        if ap_path.suffix in (".yaml", ".yml"):
-            account_properties_code = (
-                f"require 'yaml'\n"
-                f"account_properties = YAML.load_file('{abs_ap}') || {{}}\n"
-            )
-        else:
-            account_properties_code = (
-                f"account_properties = JSON.parse(File.read('{abs_ap}')) || {{}}\n"
-            )
+    from workato_platform_cli.cli.commands.sdk.ruby_executor import (
+        _load_account_properties_code,
+    )
+
+    abs_ap_path = (
+        str(Path(account_properties_path).resolve())
+        if account_properties_path
+        else None
+    )
+    account_properties_code = _load_account_properties_code(abs_ap_path)
 
     # Ruby helper to extract a field from auth config
     # Workato lambda signature: (connection, account_properties)

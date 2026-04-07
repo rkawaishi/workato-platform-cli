@@ -279,8 +279,7 @@ def build_ruby_script(  # noqa: PLR0913
           when 1 then result = block.call(settings)
           when 2 then result = block.call(settings, input)
           when 3 then result = block.call(settings, input, closure)
-          when 4 then result = block.call(settings, input, closure, account_properties)
-          else result = block.call(settings, input, closure, account_properties)
+          else result = block.call(settings, input, closure)
           end
         elsif block.is_a?(Hash)
           result = block.keys.map(&:to_s)
