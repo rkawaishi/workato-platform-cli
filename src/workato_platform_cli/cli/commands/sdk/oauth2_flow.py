@@ -267,7 +267,8 @@ all_settings = JSON.parse(File.read('{abs_settings}'))
             )
 
     # Ruby helper to extract a field from auth config
-    # Workato lambda signature: (settings, connection, account_properties)
+    # Workato lambda signature: (connection, account_properties)
+    # In local dev, connection = settings (same hash)
     ruby_extract = (
         "def extract(auth, key, settings, account_properties)\n"
         "  v = auth[key]\n"
