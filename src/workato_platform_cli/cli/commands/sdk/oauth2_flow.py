@@ -275,7 +275,7 @@ all_settings = JSON.parse(File.read('{abs_settings}'))
         "    case v.arity.abs\n"
         "    when 0 then v.call.to_s rescue nil\n"
         "    when 1 then v.call(settings).to_s rescue nil\n"
-        "    when 2 then v.call(settings, settings).to_s rescue nil\n"
+        "    when 2 then v.call(settings, account_properties).to_s rescue nil\n"
         "    else v.call(settings, settings, account_properties).to_s rescue nil\n"
         "    end\n"
         "  elsif v.is_a?(String)\n"
