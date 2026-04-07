@@ -469,7 +469,9 @@ async def exec_connector(  # noqa: PLR0913
 
     if needs_refresh and settings_abs:
         click.echo("🔄 Token expired. Attempting refresh...")
-        refreshed = _try_token_refresh(connector_abs, settings_abs, connection_name)
+        refreshed = _try_token_refresh(
+            connector_abs, settings_abs, connection_name, account_properties_abs
+        )
         if refreshed:
             # Update settings file with new tokens
             _save_tokens_to_settings(settings, key_path, refreshed, connection_name)
@@ -497,6 +499,7 @@ def _try_token_refresh(
     connector_path: str,
     settings_path: str,
     connection_name: str | None,
+    account_properties_path: str | None = None,
 ) -> dict[str, str] | None:
     """Try to refresh the OAuth2 token using the connector's refresh lambda."""
     from workato_platform_cli.cli.commands.sdk.ruby_executor import (
@@ -508,6 +511,7 @@ def _try_token_refresh(
         block_path="connection.authorization.refresh",
         settings_path=settings_path,
         connection_name=connection_name,
+        account_properties_path=account_properties_path,
     )
 
     if exit_code == 0 and stdout.strip():
