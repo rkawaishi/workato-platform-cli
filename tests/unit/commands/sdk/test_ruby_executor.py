@@ -118,3 +118,36 @@ def test_build_ruby_script_has_base_uri() -> None:
 
     assert "$base_uri" in script
     assert "resolve_url" in script
+
+
+def test_build_ruby_script_default_account_properties() -> None:
+    script = build_ruby_script(
+        connector_path="connector.rb",
+        block_path="test",
+    )
+
+    assert "account_properties = {}" in script
+
+
+def test_build_ruby_script_with_account_properties_yaml() -> None:
+    script = build_ruby_script(
+        connector_path="connector.rb",
+        block_path="test",
+        account_properties_path="account_properties.yaml",
+    )
+
+    assert "YAML.load_file" in script
+    assert "account_properties.yaml" in script
+    assert "account_properties = {}" not in script
+
+
+def test_build_ruby_script_with_account_properties_json() -> None:
+    script = build_ruby_script(
+        connector_path="connector.rb",
+        block_path="test",
+        account_properties_path="account_properties.json",
+    )
+
+    assert "JSON.parse" in script
+    assert "account_properties.json" in script
+    assert "account_properties = {}" not in script

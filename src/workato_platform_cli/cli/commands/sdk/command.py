@@ -319,6 +319,13 @@ async def generate_schema(
     default=None,
     help="Connection name (for multiple credential sets)",
 )
+@click.option(
+    "--account-properties",
+    "-a",
+    "account_properties",
+    default=None,
+    help="Account properties file (YAML or JSON)",
+)
 @click.option("--input", "-i", "input_file", default=None, help="Input JSON file")
 @click.option("--output", "-o", "output_file", default=None, help="Output JSON file")
 @click.option("--closure", default=None, help="Closure/state JSON file (for triggers)")
@@ -365,6 +372,7 @@ async def exec_connector(  # noqa: PLR0913
     settings: str | None,
     key_path: str,
     connection_name: str | None,
+    account_properties: str | None,
     input_file: str | None,
     output_file: str | None,
     closure: str | None,
@@ -406,6 +414,9 @@ async def exec_connector(  # noqa: PLR0913
     # Resolve paths to absolute
     connector_abs = str(Path(connector).resolve())
     settings_abs = str(Path(settings_resolved).resolve()) if settings_resolved else None
+    account_properties_abs = (
+        str(Path(account_properties).resolve()) if account_properties else None
+    )
     input_abs = str(Path(input_file).resolve()) if input_file else None
     output_abs = str(Path(output_file).resolve()) if output_file else None
 
@@ -417,6 +428,7 @@ async def exec_connector(  # noqa: PLR0913
         "block_path": path,
         "settings_path": settings_abs,
         "connection_name": connection_name,
+        "account_properties_path": account_properties_abs,
         "input_path": input_abs,
         "output_path": output_abs,
         "closure_path": _resolve_opt(closure),
@@ -457,7 +469,9 @@ async def exec_connector(  # noqa: PLR0913
 
     if needs_refresh and settings_abs:
         click.echo("🔄 Token expired. Attempting refresh...")
-        refreshed = _try_token_refresh(connector_abs, settings_abs, connection_name)
+        refreshed = _try_token_refresh(
+            connector_abs, settings_abs, connection_name, account_properties_abs
+        )
         if refreshed:
             # Update settings file with new tokens
             _save_tokens_to_settings(settings, key_path, refreshed, connection_name)
@@ -485,6 +499,7 @@ def _try_token_refresh(
     connector_path: str,
     settings_path: str,
     connection_name: str | None,
+    account_properties_path: str | None = None,
 ) -> dict[str, str] | None:
     """Try to refresh the OAuth2 token using the connector's refresh lambda."""
     from workato_platform_cli.cli.commands.sdk.ruby_executor import (
@@ -496,6 +511,7 @@ def _try_token_refresh(
         block_path="connection.authorization.refresh",
         settings_path=settings_path,
         connection_name=connection_name,
+        account_properties_path=account_properties_path,
     )
 
     if exit_code == 0 and stdout.strip():
@@ -529,6 +545,13 @@ def _try_token_refresh(
     default=None,
     help="Connection name (for multiple credential sets)",
 )
+@click.option(
+    "--account-properties",
+    "-a",
+    "account_properties",
+    default=None,
+    help="Account properties file (YAML or JSON)",
+)
 @click.option("--port", default=45555, type=int, help="Callback server port")
 @click.option("--ip", default="127.0.0.1", help="Callback server IP")
 @click.option(
@@ -544,6 +567,7 @@ async def oauth2(
     settings: str | None,
     key_path: str,
     connection_name: str | None,
+    account_properties: str | None,
     port: int,
     ip: str,
     use_https: bool,
@@ -564,6 +588,7 @@ async def oauth2(
         connector_path=connector,
         settings_path=settings_resolved,
         connection_name=connection_name,
+        account_properties_path=account_properties,
         port=port,
         ip=ip,
         use_https=use_https,

@@ -17,6 +17,7 @@ async def run_oauth2_flow(
     connector_path: str,
     settings_path: str | None = None,
     connection_name: str | None = None,
+    account_properties_path: str | None = None,
     port: int = 45555,
     ip: str = "127.0.0.1",
     use_https: bool = False,
@@ -32,7 +33,9 @@ async def run_oauth2_flow(
     Returns dict with token response fields.
     """
     # Extract OAuth config from connector using Ruby
-    oauth_config = _extract_oauth_config(connector_path, settings_path, connection_name)
+    oauth_config = _extract_oauth_config(
+        connector_path, settings_path, connection_name, account_properties_path
+    )
 
     authorize_url = oauth_config.get("authorize_url")
     token_url = oauth_config.get("token_url")
@@ -210,6 +213,7 @@ def _extract_oauth_config(
     connector_path: str,
     settings_path: str | None = None,
     connection_name: str | None = None,
+    account_properties_path: str | None = None,
 ) -> dict[str, str]:
     """Extract OAuth configuration from connector.rb using Ruby."""
     import shutil
@@ -247,12 +251,31 @@ all_settings = JSON.parse(File.read('{abs_settings}'))
     else:
         settings_code = "settings = {}\n"
 
+    # Load account_properties
+    from workato_platform_cli.cli.commands.sdk.ruby_executor import (
+        _load_account_properties_code,
+    )
+
+    abs_ap_path = (
+        str(Path(account_properties_path).resolve())
+        if account_properties_path
+        else None
+    )
+    account_properties_code = _load_account_properties_code(abs_ap_path)
+
     # Ruby helper to extract a field from auth config
+    # Workato lambda signature: (connection, account_properties)
+    # In local dev, connection = settings (same hash)
     ruby_extract = (
-        "def extract(auth, key, settings)\n"
+        "def extract(auth, key, settings, account_properties)\n"
         "  v = auth[key]\n"
         "  if v.is_a?(Proc)\n"
-        "    v.call(settings).to_s rescue nil\n"
+        "    case v.arity.abs\n"
+        "    when 0 then v.call.to_s rescue nil\n"
+        "    when 1 then v.call(settings).to_s rescue nil\n"
+        "    when 2 then v.call(settings, account_properties).to_s rescue nil\n"
+        "    else v.call(settings, settings, account_properties).to_s rescue nil\n"
+        "    end\n"
         "  elsif v.is_a?(String)\n"
         "    v\n"
         "  else\n"
@@ -267,20 +290,21 @@ all_settings = JSON.parse(File.read('{abs_settings}'))
         {ruby_extract}
         connector = eval(File.read('{abs_connector}'))
         {settings_code}
+        {account_properties_code}
 
         auth = connector[:connection][:authorization] rescue {{}}
         result = {{}}
 
-        url = extract(auth, :authorization_url, settings)
+        url = extract(auth, :authorization_url, settings, account_properties)
         result['authorize_url'] = url if url
 
-        url = extract(auth, :token_url, settings)
+        url = extract(auth, :token_url, settings, account_properties)
         result['token_url'] = url if url
 
-        v = extract(auth, :client_id, settings)
+        v = extract(auth, :client_id, settings, account_properties)
         result['client_id'] = v if v
 
-        v = extract(auth, :client_secret, settings)
+        v = extract(auth, :client_secret, settings, account_properties)
         result['client_secret'] = v if v
 
         if auth[:scope].is_a?(Array)
