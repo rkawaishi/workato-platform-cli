@@ -72,7 +72,10 @@ async def list_connectors(
         custom = True
 
     if platform:
-        all_connectors = await connector_manager.list_platform_connectors()
+        quiet = output_mode == "json"
+        all_connectors = await connector_manager.list_platform_connectors(
+            quiet=quiet
+        )
 
         if provider:
             # Filter by provider name
