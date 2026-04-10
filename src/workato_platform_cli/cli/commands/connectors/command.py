@@ -62,9 +62,10 @@ async def list_connectors(
     """List connectors (platform connectors include trigger and action metadata)"""
     import json
 
-    # --provider implies --platform
+    # --provider implies --platform only
     if provider:
         platform = True
+        custom = False
 
     # If neither flag is specified, show both
     if not platform and not custom:
@@ -72,7 +73,7 @@ async def list_connectors(
         custom = True
 
     if platform:
-        quiet = output_mode == "json"
+        quiet = output_mode == "json" or provider is not None
         all_connectors = await connector_manager.list_platform_connectors(
             quiet=quiet
         )
@@ -103,10 +104,9 @@ async def list_connectors(
                         indent=2,
                     )
                 )
-                return
-
-            for connector in all_connectors:
-                _display_connector_summary(connector)
+            else:
+                for connector in all_connectors:
+                    _display_connector_summary(connector)
         else:
             click.echo("  No platform connectors found")
 
