@@ -30,11 +30,13 @@ async def test_list_connectors_defaults(
 ) -> None:
     manager = Mock()
 
+    connector = _make_connector("salesforce", "Salesforce")
+
     with (
         patch.object(
             manager,
             "list_platform_connectors",
-            AsyncMock(return_value=[Mock(name="salesforce", title="Salesforce")]),
+            AsyncMock(return_value=[connector]),
         ) as mock_list_platform,
         patch.object(
             manager, "list_custom_connectors", AsyncMock()
@@ -43,7 +45,11 @@ async def test_list_connectors_defaults(
         assert command.list_connectors.callback
 
         await command.list_connectors.callback(
-            platform=False, custom=False, connector_manager=manager
+            platform=False,
+            custom=False,
+            provider=None,
+            output_mode="table",
+            connector_manager=manager,
         )
 
         mock_list_platform.assert_awaited_once()
@@ -66,11 +72,169 @@ async def test_list_connectors_platform_only(
         assert command.list_connectors.callback
 
         await command.list_connectors.callback(
-            platform=True, custom=False, connector_manager=manager
+            platform=True,
+            custom=False,
+            provider=None,
+            output_mode="table",
+            connector_manager=manager,
         )
 
         mock_list_custom.assert_not_awaited()
         assert any("No platform connectors" in line for line in capture_echo)
+
+
+def _make_connector(
+    name: str,
+    title: str,
+    triggers: list | None = None,
+    actions: list | None = None,
+) -> Mock:
+    """Create a mock PlatformConnector."""
+    c = Mock()
+    c.name = name
+    c.title = title
+    c.triggers = triggers or []
+    c.actions = actions or []
+    c.to_dict.return_value = {
+        "name": name,
+        "title": title,
+        "triggers": [{"name": t.name, "title": t.title} for t in (triggers or [])],
+        "actions": [{"name": a.name, "title": a.title} for a in (actions or [])],
+    }
+    return c
+
+
+def _make_action(
+    name: str,
+    title: str = "",
+    deprecated: bool = False,
+    bulk: bool = False,
+    batch: bool = False,
+) -> Mock:
+    a = Mock()
+    a.name = name
+    a.title = title or name
+    a.deprecated = deprecated
+    a.bulk = bulk
+    a.batch = batch
+    return a
+
+
+@pytest.mark.asyncio
+async def test_list_connectors_platform_shows_triggers_actions_count(
+    monkeypatch: pytest.MonkeyPatch, capture_echo: list[str]
+) -> None:
+    triggers = [_make_action("new_issue"), _make_action("updated_issue")]
+    actions = [_make_action("create_issue")]
+    connector = _make_connector("jira", "Jira", triggers, actions)
+    manager = Mock()
+
+    with (
+        patch.object(
+            manager,
+            "list_platform_connectors",
+            AsyncMock(return_value=[connector]),
+        ),
+        patch.object(manager, "list_custom_connectors", AsyncMock()),
+    ):
+        assert command.list_connectors.callback
+        await command.list_connectors.callback(
+            platform=True,
+            custom=False,
+            provider=None,
+            output_mode="table",
+            connector_manager=manager,
+        )
+
+    output = "\n".join(capture_echo)
+    assert "Jira (jira)" in output
+    assert "triggers: 2" in output
+    assert "actions: 1" in output
+
+
+@pytest.mark.asyncio
+async def test_list_connectors_provider_detail(
+    monkeypatch: pytest.MonkeyPatch, capture_echo: list[str]
+) -> None:
+    triggers = [_make_action("new_message", "New message")]
+    actions = [
+        _make_action("post_message", "Post message"),
+        _make_action("old_action", "Old action", deprecated=True),
+    ]
+    connector = _make_connector("slack", "Slack", triggers, actions)
+    manager = Mock()
+
+    with patch.object(
+        manager,
+        "list_platform_connectors",
+        AsyncMock(return_value=[connector]),
+    ):
+        assert command.list_connectors.callback
+        await command.list_connectors.callback(
+            platform=False,
+            custom=False,
+            provider="slack",
+            output_mode="table",
+            connector_manager=manager,
+        )
+
+    output = "\n".join(capture_echo)
+    assert "Slack (slack)" in output
+    assert "new_message" in output
+    assert "post_message" in output
+    assert "[deprecated]" in output
+
+
+@pytest.mark.asyncio
+async def test_list_connectors_provider_not_found(
+    monkeypatch: pytest.MonkeyPatch, capture_echo: list[str]
+) -> None:
+    manager = Mock()
+
+    with patch.object(
+        manager,
+        "list_platform_connectors",
+        AsyncMock(return_value=[]),
+    ):
+        assert command.list_connectors.callback
+        await command.list_connectors.callback(
+            platform=False,
+            custom=False,
+            provider="nonexistent",
+            output_mode="table",
+            connector_manager=manager,
+        )
+
+    assert any("not found" in line for line in capture_echo)
+
+
+@pytest.mark.asyncio
+async def test_list_connectors_provider_json_output(
+    monkeypatch: pytest.MonkeyPatch, capture_echo: list[str]
+) -> None:
+    import json
+
+    triggers = [_make_action("new_issue")]
+    connector = _make_connector("jira", "Jira", triggers, [])
+    manager = Mock()
+
+    with patch.object(
+        manager,
+        "list_platform_connectors",
+        AsyncMock(return_value=[connector]),
+    ):
+        assert command.list_connectors.callback
+        await command.list_connectors.callback(
+            platform=False,
+            custom=False,
+            provider="jira",
+            output_mode="json",
+            connector_manager=manager,
+        )
+
+    parsed = json.loads(capture_echo[0])
+    assert parsed["name"] == "jira"
+    assert len(parsed["triggers"]) == 1
 
 
 @pytest.mark.asyncio

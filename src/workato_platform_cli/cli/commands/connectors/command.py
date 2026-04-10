@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import asyncclick as click
 
 from dependency_injector.wiring import Provide, inject
@@ -10,6 +14,15 @@ from workato_platform_cli.cli.utils.exception_handler import (
     handle_api_exceptions,
     handle_cli_exceptions,
 )
+
+
+if TYPE_CHECKING:
+    from workato_platform_cli.client.workato_api.models.connector_action import (
+        ConnectorAction,
+    )
+    from workato_platform_cli.client.workato_api.models.platform_connector import (
+        PlatformConnector,
+    )
 
 
 @click.group()
@@ -25,15 +38,33 @@ def connectors() -> None:
     help="List platform connectors with trigger and action metadata",
 )
 @click.option("--custom", is_flag=True, help="List custom connectors")
+@click.option(
+    "--provider",
+    default=None,
+    help="Filter by provider name (shows triggers/actions detail)",
+)
+@click.option(
+    "--output-mode",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format",
+)
 @handle_cli_exceptions
 @inject
 @handle_api_exceptions
 async def list_connectors(
     platform: bool,
     custom: bool,
+    provider: str | None,
+    output_mode: str,
     connector_manager: ConnectorManager = Provide[Container.connector_manager],
 ) -> None:
     """List connectors (platform connectors include trigger and action metadata)"""
+    import json
+
+    # --provider implies --platform
+    if provider:
+        platform = True
 
     # If neither flag is specified, show both
     if not platform and not custom:
@@ -43,11 +74,36 @@ async def list_connectors(
     if platform:
         all_connectors = await connector_manager.list_platform_connectors()
 
+        if provider:
+            # Filter by provider name
+            matched = [
+                c for c in all_connectors if c.name == provider
+            ]
+            if not matched:
+                click.echo(f"❌ Provider '{provider}' not found")
+                return
+
+            connector = matched[0]
+
+            if output_mode == "json":
+                click.echo(json.dumps(connector.to_dict(), indent=2))
+                return
+
+            _display_connector_detail(connector)
+            return
+
         if all_connectors:
+            if output_mode == "json":
+                click.echo(
+                    json.dumps(
+                        [c.to_dict() for c in all_connectors],
+                        indent=2,
+                    )
+                )
+                return
+
             for connector in all_connectors:
-                name = connector.name
-                title = connector.title
-                click.echo(f"  • {title} ({name})")
+                _display_connector_summary(connector)
         else:
             click.echo("  No platform connectors found")
 
@@ -55,6 +111,55 @@ async def list_connectors(
         if platform:
             click.echo()  # Add spacing between sections
         await connector_manager.list_custom_connectors()
+
+
+def _display_connector_summary(connector: PlatformConnector) -> None:
+    """Display a single connector with triggers/actions count."""
+    title = connector.title
+    name = connector.name
+    triggers = connector.triggers or []
+    actions = connector.actions or []
+    click.echo(f"  🔌 {title} ({name})")
+    click.echo(
+        f"     triggers: {len(triggers)}  actions: {len(actions)}"
+    )
+
+
+def _display_connector_detail(connector: PlatformConnector) -> None:
+    """Display detailed connector info with triggers/actions list."""
+    click.echo(f"🔌 {connector.title} ({connector.name})")
+
+    triggers = connector.triggers or []
+    if triggers:
+        click.echo("  Triggers:")
+        for t in triggers:
+            label = t.title or t.name
+            flags = _action_flags(t)
+            click.echo(f"    • {t.name} — {label}{flags}")
+    else:
+        click.echo("  Triggers: (none)")
+
+    actions = connector.actions or []
+    if actions:
+        click.echo("  Actions:")
+        for a in actions:
+            label = a.title or a.name
+            flags = _action_flags(a)
+            click.echo(f"    • {a.name} — {label}{flags}")
+    else:
+        click.echo("  Actions: (none)")
+
+
+def _action_flags(action: ConnectorAction) -> str:
+    """Build flag string for deprecated/bulk/batch indicators."""
+    parts: list[str] = []
+    if action.deprecated:
+        parts.append("deprecated")
+    if action.bulk:
+        parts.append("bulk")
+    if action.batch:
+        parts.append("batch")
+    return f" [{', '.join(parts)}]" if parts else ""
 
 
 @connectors.command()
