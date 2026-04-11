@@ -103,6 +103,7 @@ async def list_connectors(
                     indent=2,
                 )
             )
+            return
         elif all_connectors:
             for connector in all_connectors:
                 _display_connector_summary(connector)
