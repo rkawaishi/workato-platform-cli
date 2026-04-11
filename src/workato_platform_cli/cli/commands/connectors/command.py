@@ -96,17 +96,16 @@ async def list_connectors(
             _display_connector_detail(connector)
             return
 
-        if all_connectors:
-            if output_mode == "json":
-                click.echo(
-                    json.dumps(
-                        [c.to_dict() for c in all_connectors],
-                        indent=2,
-                    )
+        if output_mode == "json":
+            click.echo(
+                json.dumps(
+                    [c.to_dict() for c in all_connectors],
+                    indent=2,
                 )
-            else:
-                for connector in all_connectors:
-                    _display_connector_summary(connector)
+            )
+        elif all_connectors:
+            for connector in all_connectors:
+                _display_connector_summary(connector)
         else:
             click.echo("  No platform connectors found")
 
