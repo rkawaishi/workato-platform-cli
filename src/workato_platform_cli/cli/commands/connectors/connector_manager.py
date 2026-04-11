@@ -268,14 +268,18 @@ class ConnectorManager:
             for line in config_json.split("\n"):
                 click.echo(f"  {line}")
 
-    async def list_platform_connectors(self) -> list[PlatformConnector]:
+    async def list_platform_connectors(
+        self, quiet: bool = False
+    ) -> list[PlatformConnector]:
         """List all platform connectors with pagination"""
         all_connectors = []
         page = 1
         per_page = 100
 
-        spinner = Spinner("Fetching platform connectors")
-        spinner.start()
+        spinner: Spinner | None = None
+        if not quiet:
+            spinner = Spinner("Fetching platform connectors")
+            spinner.start()
 
         connectors_api = self.workato_api_client.connectors_api
 
@@ -298,13 +302,18 @@ class ConnectorManager:
                     break
 
                 page += 1
-                spinner.update_message(f"Fetching platform connectors (page {page})")
+                if spinner:
+                    spinner.update_message(
+                        f"Fetching platform connectors (page {page})"
+                    )
         finally:
-            elapsed = spinner.stop()
+            elapsed = spinner.stop() if spinner else 0.0
 
-        click.echo(
-            f"🔌 Platform Connectors ({len(all_connectors)} total) - ({elapsed:.1f}s)"
-        )
+        if not quiet:
+            click.echo(
+                f"🔌 Platform Connectors"
+                f" ({len(all_connectors)} total) - ({elapsed:.1f}s)"
+            )
 
         return all_connectors
 
